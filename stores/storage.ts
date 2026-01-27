@@ -1,6 +1,8 @@
-import { MMKV } from 'react-native-mmkv'
 import { StateStorage } from 'zustand/middleware'
 
+
+// @ts-ignore
+const { MMKV } = require('react-native-mmkv')
 const storage = new MMKV()
 
 const zustandStorage: StateStorage = {
