@@ -1,2 +1,15 @@
 @import 'tailwindcss';
 @import 'uniwind';
+
+@theme {
+  --color-foundation: #000000;
+  --color-glass-1: rgba(255, 255, 255, 0.05);
+  --color-glass-2: rgba(255, 255, 255, 0.1);
+  --color-layer-border: rgba(255, 255, 255, 0.12);
+  --color-accent: #22d3ee;
+  --color-warning: #fbbf24;
+  --color-danger: #ea580c;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.6);
+  --color-text-tertiary: rgba(255, 255, 255, 0.3);
+}

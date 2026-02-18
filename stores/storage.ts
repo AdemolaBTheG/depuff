@@ -1,21 +1,19 @@
-import { StateStorage } from 'zustand/middleware'
+import { createMMKV } from 'react-native-mmkv';
+import { StateStorage } from 'zustand/middleware';
 
-
-// @ts-ignore
-const { MMKV } = require('react-native-mmkv')
-const storage = new MMKV()
+const storage = createMMKV();
 
 const zustandStorage: StateStorage = {
   setItem: (name, value) => {
-    return storage.set(name, value)
+    return storage.set(name, value);
   },
   getItem: (name) => {
-    const value = storage.getString(name)
-    return value ?? null
+    const value = storage.getString(name);
+    return value ?? null;
   },
   removeItem: (name) => {
-    return storage.delete(name)
+    return storage.remove(name);
   },
-}
+};
 
-export default zustandStorage
+export default zustandStorage;

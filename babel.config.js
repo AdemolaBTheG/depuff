@@ -1,7 +1,11 @@
 module.exports = function (api) {
-    api.cache(true);
-    return {
-        presets: [["babel-preset-expo"]],
-        plugins: [["inline-import", { extensions: [".sql"] }], "react-native-worklets/plugin"], // <-- add this
-    };
+  api.cache(true);
+  return {
+    presets: [['babel-preset-expo']],
+    plugins: [
+      ['inline-import', { extensions: ['.sql'] }],
+      'react-native-worklets-core/plugin',
+      'react-native-worklets/plugin',
+    ],
+  };
 };

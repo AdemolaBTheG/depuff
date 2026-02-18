@@ -5,11 +5,16 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+
     "scheme": "depuff",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.depuff.app"
+      "bundleIdentifier": "com.depuff.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +23,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.CAMERA"]
     },
     "web": {
       "output": "static",
@@ -56,10 +62,7 @@
               "name": "HydrationFlushWidget",
               "displayName": "Hydration Flush",
               "description": "Log hydration from the home screen and view flush status.",
-              "supportedFamilies": [
-                "systemSmall",
-                "systemMedium"
-              ]
+              "supportedFamilies": ["systemSmall", "systemMedium"]
             }
           ]
         }
@@ -78,6 +81,27 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.depuff.app.widgets",
+                  "entitlements": {
+                    "com.apple.security.application-groups": ["group.com.depuff.app"]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "949b5347-9bde-4d72-99a4-a2f8e3ccbe99"
+      }
     }
   }
 }
