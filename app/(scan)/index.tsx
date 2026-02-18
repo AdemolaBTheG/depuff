@@ -1,9 +1,17 @@
+import { NativeButton } from '@/components/native-button';
+import Shimmer from '@/components/shimmer';
 import { Theme } from '@/constants/Theme';
+import { useAnalyzeFaceMutation } from '@/hooks/useBridgeApi';
+import { persistScanResult } from '@/utils/scan-intake';
+import { Button as IOSButton, Host as IOSHost, HStack as IOSHStack, Spacer as IOSSpacer } from '@expo/ui/swift-ui';
+import { buttonStyle, controlSize, disabled as iosDisabled, tint } from '@expo/ui/swift-ui/modifiers';
+import { useIsFocused } from '@react-navigation/native';
+import { Canvas, FillType, Path, rect, Skia } from '@shopify/react-native-skia';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Image } from 'expo-image';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
-import { Canvas, FillType, Path, Skia, rect } from '@shopify/react-native-skia';
 import {
   cancelAnimation,
   Easing,
@@ -14,17 +22,18 @@ import {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useCameraDevice,
+  useCameraPermission,
+  type Frame,
+  type Camera as VisionCamera,
+} from 'react-native-vision-camera';
 import {
   Camera as FaceCamera,
   type Face,
   type FrameFaceDetectionOptions,
 } from 'react-native-vision-camera-face-detector';
-import {
-  type Camera as VisionCamera,
-  type Frame,
-  useCameraDevice,
-  useCameraPermission,
-} from 'react-native-vision-camera';
 
 const REQUIRED_STABLE_FRAMES = 8;
 const STABLE_FRAME_DECAY = 2;
@@ -72,21 +81,27 @@ function normalizeFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
 
-function toDailyDate(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
+function parseError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return 'Unable to analyze this scan.';
 }
 
 type FaceGuideOverlayProps = {
   guideState: 'idle' | 'warning' | 'ready' | 'error';
 };
 
-function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
-  const { width, height } = useWindowDimensions();
-
+function getGuideFrame(width: number, height: number) {
   const guideWidth = Math.min(width * 0.82, 390);
   const guideHeight = guideWidth * 1.28;
   const guideX = (width - guideWidth) / 2;
   const guideY = Math.max(96, (height - guideHeight) / 2 - 36);
+  return { guideWidth, guideHeight, guideX, guideY };
+}
+
+function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
+  const { width, height } = useWindowDimensions();
+
+  const { guideWidth, guideHeight, guideX, guideY } = getGuideFrame(width, height);
 
   const maskPath = useMemo(() => {
     const path = Skia.Path.Make();
@@ -168,6 +183,7 @@ function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
 
 export default function ScanIndexScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
@@ -181,6 +197,12 @@ export default function ScanIndexScreen() {
   const [gate, setGate] = useState<QualityGateState>(INITIAL_GATE_STATE);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [capturedAt, setCapturedAt] = useState<string | null>(null);
+  const [isPersisting, setIsPersisting] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const analyzeFaceMutation = useAnalyzeFaceMutation();
 
   const faceDetectionOptions = useMemo<FrameFaceDetectionOptions>(
     () => ({
@@ -205,6 +227,90 @@ export default function ScanIndexScreen() {
     return 'idle';
   }, [captureError, gate.distanceOk, gate.faceCount, gate.faceCountOk, gate.poseOk, gate.ready]);
 
+  const clearCapture = useCallback(() => {
+    capturedUriRef.current = null;
+    stableFramesRef.current = 0;
+    setCaptureError(null);
+    setGate(INITIAL_GATE_STATE);
+    setCapturedImageUri(null);
+    setCapturedAt(null);
+    setAnalysisError(null);
+  }, []);
+
+  const isAnalyzing = analyzeFaceMutation.isPending || isPersisting;
+  const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
+
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: true,
+      title: 'Face Scan',
+      headerTransparent: true,
+      headerStyle: { backgroundColor: 'transparent' },
+      unstable_headerLeftItems: () => [
+        {
+          type: 'button' as const,
+          label: 'Back',
+          icon: { type: 'sfSymbol' as const, name: 'chevron.left' as const },
+          tintColor: Theme.colors.textPrimary,
+          onPress: () => router.back(),
+        },
+      ],
+      unstable_headerRightItems: () => [
+        {
+          type: 'button' as const,
+          label: flashEnabled ? 'Flash Off' : 'Flash On',
+          icon: { type: 'sfSymbol' as const, name: flashIconName },
+          tintColor: Theme.colors.accent,
+          onPress: () => setFlashEnabled((current) => !current),
+        },
+      ],
+    }),
+    [flashEnabled, flashIconName, router]
+  );
+
+  const analyzeCapturedImage = useCallback(async () => {
+    if (!capturedImageUri || isAnalyzing) return;
+    setAnalysisError(null);
+
+    const createdAt = capturedAt ?? new Date().toISOString();
+
+    try {
+      const result = await analyzeFaceMutation.mutateAsync({
+        imageUri: capturedImageUri,
+        timestamp: createdAt,
+        locale: 'en',
+        metadata: {
+          is_morning: true,
+          last_water_intake_ml: 0,
+        },
+      });
+
+      setIsPersisting(true);
+      await persistScanResult({
+        imageUri: capturedImageUri,
+        createdAt,
+        result,
+      });
+      router.push({
+        pathname: '/(scan)/result',
+        params: {
+          imageUri: capturedImageUri,
+          capturedAt: createdAt,
+          result: encodeURIComponent(JSON.stringify(result)),
+        },
+      });
+    } catch (error) {
+      setAnalysisError(parseError(error));
+    } finally {
+      setIsPersisting(false);
+    }
+  }, [analyzeFaceMutation, capturedAt, capturedImageUri, isAnalyzing, router]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    clearCapture();
+  }, [isFocused, clearCapture]);
+
   const autoCapture = useCallback(async () => {
     if (captureInFlightRef.current || capturedUriRef.current) return;
 
@@ -223,10 +329,8 @@ export default function ScanIndexScreen() {
 
       const uri = normalizeFileUri(photo.path);
       capturedUriRef.current = uri;
-      router.push({
-        pathname: '/(scan)/result',
-        params: { capturedAt: toDailyDate(), imageUri: uri },
-      });
+      setCapturedImageUri(uri);
+      setCapturedAt(new Date().toISOString());
     } catch (error) {
       stableFramesRef.current = 0;
       setCaptureError(error instanceof Error ? error.message : 'Failed to capture image');
@@ -234,10 +338,12 @@ export default function ScanIndexScreen() {
       setIsCapturing(false);
       captureInFlightRef.current = false;
     }
-  }, [flashEnabled, router]);
+  }, [flashEnabled]);
 
   const handleFacesDetected = useCallback(
     async (faces: Face[], frame: Frame) => {
+      if (capturedImageUri) return;
+
       const faceCount = faces.length;
       const primaryFace = faces[0];
 
@@ -296,37 +402,12 @@ export default function ScanIndexScreen() {
         await autoCapture();
       }
     },
-    [autoCapture, isCapturing]
+    [autoCapture, capturedImageUri, isCapturing]
   );
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Face Scan',
-          headerTransparent: true,
-          headerStyle: { backgroundColor: 'transparent' },
-          unstable_headerLeftItems: () => [
-            {
-              type: 'button',
-              label: 'Back',
-              icon: { type: 'sfSymbol', name: 'chevron.left' },
-              tintColor: Theme.colors.textPrimary,
-              onPress: () => router.back(),
-            },
-          ],
-          unstable_headerRightItems: () => [
-            {
-              type: 'button',
-              label: flashEnabled ? 'Flash Off' : 'Flash On',
-              icon: { type: 'sfSymbol', name: flashEnabled ? 'bolt.fill' : 'bolt.slash' },
-              tintColor: Theme.colors.accent,
-              onPress: () => setFlashEnabled((current) => !current),
-            },
-          ],
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
 
       {!hasPermission ? (
         <View style={styles.centered}>
@@ -349,33 +430,135 @@ export default function ScanIndexScreen() {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             device={device}
-            isActive={isFocused}
+            isActive={isFocused && !capturedImageUri}
             photo={true}
             torch={flashEnabled ? 'on' : 'off'}
             faceDetectionOptions={faceDetectionOptions}
             faceDetectionCallback={handleFacesDetected}
           />
-          <FaceGuideOverlay guideState={guideState} />
+          {capturedImageUri ? (
+            <Shimmer style={styles.previewImageOverlay}>
+              <Image
+                source={{ uri: capturedImageUri }}
+                contentFit="cover"
+                transition={220}
+                recyclingKey={capturedImageUri}
+                style={styles.previewImageOverlay}
+              />
+              {isAnalyzing ? (
+                <Shimmer.Overlay width="38%" duration={1400} repeatDelay={120} overlayAngle={12}>
+                  <View style={styles.imageShimmerTrack}>
+                    <View style={styles.imageShimmerEdge} />
+                    <View style={styles.imageShimmerCenter} />
+                    <View style={styles.imageShimmerEdge} />
+                  </View>
+                </Shimmer.Overlay>
+              ) : null}
+            </Shimmer>
+          ) : (
+            <FaceGuideOverlay guideState={guideState} />
+          )}
 
           <View style={styles.overlay}>
-            <View style={styles.card}>
-              <Text style={styles.guidance}>{gate.guidance}</Text>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${captureProgress * 100}%` }]} />
-              </View>
-              <Text style={styles.meta}>
-                Faces {gate.faceCount} | Ratio {(gate.faceRatio * 100).toFixed(0)}% | Pose y
-                {gate.yaw.toFixed(0)} p{gate.pitch.toFixed(0)} r{gate.roll.toFixed(0)}
-              </Text>
-            </View>
+            {capturedImageUri ? (
+              <>
+                {analysisError || isAnalyzing ? (
+                  <View style={styles.previewStatusCard}>
+                    {analysisError ? <Text style={styles.previewError}>{analysisError}</Text> : null}
+                    {isAnalyzing ? (
+                      <View style={styles.statusRow}>
+                        <Shimmer style={styles.analyzingDot}>
+                          <Shimmer.Overlay width="100%" duration={1100} repeatDelay={80}>
+                            <View style={styles.analyzingDotOverlay} />
+                          </Shimmer.Overlay>
+                          <View style={styles.analyzingDotBase} />
+                        </Shimmer>
+                        <Text style={styles.statusText}>
+                          {analyzeFaceMutation.isPending ? 'Analyzing image...' : 'Saving result...'}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
 
-            {(isCapturing || captureError) && (
-              <View style={styles.statusRow}>
-                {isCapturing ? <ActivityIndicator color={Theme.colors.accent} /> : null}
-                <Text style={styles.statusText}>
-                  {isCapturing ? 'Capturing image...' : captureError ?? ''}
-                </Text>
-              </View>
+                {process.env.EXPO_OS === 'ios' ? (
+                  <IOSHost
+                    style={[styles.iosActionsHost, styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}
+                  >
+                    <IOSHStack spacing={12}>
+                      <IOSButton
+                        label="Retake"
+                        role="cancel"
+                        onPress={clearCapture}
+                        modifiers={[
+                          iosDisabled(isAnalyzing),
+                          controlSize('large'),
+                          tint('rgba(255,255,255,0.2)'),
+                          buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
+                        ]}
+                      />
+                      <IOSSpacer />
+                      <IOSButton
+                        label="Analyze"
+                        systemImage="sparkles"
+                        onPress={analyzeCapturedImage}
+                        modifiers={[
+                          buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
+                          tint(Theme.colors.accent),
+                          controlSize('large'),
+                          iosDisabled(isAnalyzing),
+                        ]}
+                      />
+                    </IOSHStack>
+                  </IOSHost>
+                ) : (
+                  <View style={[styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}>
+                    <View style={styles.previewActions}>
+                      <>
+                        <View style={styles.previewActionItem}>
+                          <NativeButton
+                            label="Retake"
+                            kind="secondary"
+                            role="cancel"
+                            onPress={clearCapture}
+                            disabled={isAnalyzing}
+                          />
+                        </View>
+                        <View style={styles.previewActionItem}>
+                          <NativeButton
+                            label="Analyze"
+                            onPress={analyzeCapturedImage}
+                            disabled={isAnalyzing}
+                            systemImage="sparkles"
+                          />
+                        </View>
+                      </>
+                    </View>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={styles.card}>
+                  <Text style={styles.guidance}>{gate.guidance}</Text>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${captureProgress * 100}%` }]} />
+                  </View>
+                  <Text style={styles.meta}>
+                    Faces {gate.faceCount} | Ratio {(gate.faceRatio * 100).toFixed(0)}% | Pose y
+                    {gate.yaw.toFixed(0)} p{gate.pitch.toFixed(0)} r{gate.roll.toFixed(0)}
+                  </Text>
+                </View>
+
+                {(isCapturing || captureError) && (
+                  <View style={styles.statusRow}>
+                    {isCapturing ? <ActivityIndicator color={Theme.colors.accent} /> : null}
+                    <Text style={styles.statusText}>
+                      {isCapturing ? 'Capturing image...' : captureError ?? ''}
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
         </>
@@ -426,6 +609,50 @@ const styles = StyleSheet.create({
     bottom: 24,
     gap: 12,
   },
+  previewImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  imageShimmerTrack: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  imageShimmerEdge: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  imageShimmerCenter: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  previewStatusCard: {
+    backgroundColor: Theme.colors.glass1,
+    borderColor: Theme.colors.border,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+  },
+  previewActionsContainer: {
+    width: '100%',
+  },
+  previewActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 2,
+  },
+  previewActionItem: {
+    flex: 1,
+  },
+  iosActionsHost: {
+    width: '100%',
+  },
+ 
+  previewError: {
+    color: Theme.colors.danger,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   card: {
     backgroundColor: Theme.colors.glass1,
     borderColor: Theme.colors.border,
@@ -463,6 +690,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  analyzingDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  analyzingDotBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Theme.colors.glass2,
+  },
+  analyzingDotOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
   statusText: {
     color: Theme.colors.textPrimary,

@@ -28,6 +28,7 @@
     "@expo/ui": "~55.0.0-preview.6",
     "@expo/vector-icons": "^15.0.3",
     "@legendapp/list": "^2.0.19",
+    "@react-native-masked-view/masked-view": "^0.3.2",
     "@react-native-menu/menu": "^1.2.2",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",

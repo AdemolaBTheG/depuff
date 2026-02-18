@@ -1,19 +1,15 @@
 import { dailyLogs, faceScans } from '@/db/schema';
+import { analyzeFace, type AnalyzeFaceResponse, type BridgeRoutineProtocol } from '@/services/bridge-api';
 import { useDbStore } from '@/stores/dbStore';
 
-export type ScanRoutineKey = 'quick_sculpt' | 'standard_drainage' | 'deep_tissue_drainage';
+export type ScanRoutineKey = BridgeRoutineProtocol;
 
-export type ScanResultPayload = {
-  score: number;
-  primary_zone: string;
-  severity: 'low' | 'moderate' | 'high';
-  feedback?: string;
-  flagged_areas?: string[];
-};
+export type ScanResultPayload = AnalyzeFaceResponse;
 
 export type SubmitScanParams = {
   imageUri: string;
   createdAt?: string;
+  locale?: 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
 };
 
 export type PersistScanParams = {
@@ -27,7 +23,7 @@ function toDailyDate(input = new Date()): string {
 }
 
 export function selectRoutineFromScore(score: number): ScanRoutineKey {
-  if (score > 70) return 'deep_tissue_drainage';
+  if (score > 70) return 'lymphatic_deep_drainage';
   if (score < 30) return 'quick_sculpt';
   return 'standard_drainage';
 }
@@ -35,25 +31,11 @@ export function selectRoutineFromScore(score: number): ScanRoutineKey {
 export async function submitScanForAnalysis(
   params: SubmitScanParams
 ): Promise<ScanResultPayload | null> {
-  const endpoint = process.env.EXPO_PUBLIC_SCAN_API_URL;
-  if (!endpoint) return null;
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      imageUri: params.imageUri,
-      createdAt: params.createdAt ?? new Date().toISOString(),
-    }),
+  return analyzeFace({
+    imageUri: params.imageUri,
+    timestamp: params.createdAt ?? new Date().toISOString(),
+    locale: params.locale ?? 'en',
   });
-
-  if (!response.ok) {
-    throw new Error(`Scan intake failed (${response.status})`);
-  }
-
-  return (await response.json()) as ScanResultPayload;
 }
 
 export async function persistScanResult({
@@ -71,8 +53,8 @@ export async function persistScanResult({
   await db.insert(faceScans).values({
     createdAt,
     score: result.score,
-    feedback: result.feedback ?? `${result.primary_zone} - ${result.severity}`,
-    flaggedAreas: result.flagged_areas ? JSON.stringify(result.flagged_areas) : null,
+    feedback: result.analysis_summary ?? result.status,
+    flaggedAreas: result.focus_areas ? JSON.stringify(result.focus_areas) : null,
     localImageUri: imageUri,
   });
 
