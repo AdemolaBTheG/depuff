@@ -1,8 +1,19 @@
 import { Theme } from '@/constants/Theme';
 import { Stack, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { Canvas, FillType, Path, Skia, rect } from '@shopify/react-native-skia';
+import {
+  cancelAnimation,
+  Easing,
+  interpolateColor,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   Camera as FaceCamera,
   type Face,
@@ -15,12 +26,13 @@ import {
   useCameraPermission,
 } from 'react-native-vision-camera';
 
-const REQUIRED_STABLE_FRAMES = 15;
-const MIN_FACE_RATIO = 0.6;
-const MAX_FACE_RATIO = 0.82;
-const MAX_YAW = 8;
-const MAX_PITCH = 8;
-const MAX_ROLL = 8;
+const REQUIRED_STABLE_FRAMES = 8;
+const STABLE_FRAME_DECAY = 2;
+const MIN_FACE_RATIO = 0.42;
+const MAX_FACE_RATIO = 0.92;
+const MAX_YAW = 15;
+const MAX_PITCH = 15;
+const MAX_ROLL = 15;
 
 type QualityGateState = {
   faceCount: number;
@@ -64,6 +76,96 @@ function toDailyDate(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
+type FaceGuideOverlayProps = {
+  guideState: 'idle' | 'warning' | 'ready' | 'error';
+};
+
+function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
+  const { width, height } = useWindowDimensions();
+
+  const guideWidth = Math.min(width * 0.82, 390);
+  const guideHeight = guideWidth * 1.28;
+  const guideX = (width - guideWidth) / 2;
+  const guideY = Math.max(96, (height - guideHeight) / 2 - 36);
+
+  const maskPath = useMemo(() => {
+    const path = Skia.Path.Make();
+    path.addRect(rect(0, 0, width, height));
+    path.addOval(rect(guideX, guideY, guideWidth, guideHeight));
+    path.setFillType(FillType.EvenOdd);
+    return path;
+  }, [guideHeight, guideWidth, guideX, guideY, height, width]);
+
+  const ringPath = useMemo(() => {
+    const path = Skia.Path.Make();
+    path.addOval(rect(guideX, guideY, guideWidth, guideHeight));
+    return path;
+  }, [guideHeight, guideWidth, guideX, guideY]);
+
+  const stateIndex = useSharedValue(0);
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    const indexMap = {
+      idle: 0,
+      warning: 1,
+      ready: 2,
+      error: 3,
+    } as const;
+
+    stateIndex.value = withTiming(indexMap[guideState], {
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [guideState, stateIndex]);
+
+  useEffect(() => {
+    if (guideState === 'ready' || guideState === 'error') {
+      cancelAnimation(pulse);
+      pulse.value = withTiming(0, { duration: 180 });
+      return;
+    }
+
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1,
+      false
+    );
+  }, [guideState, pulse]);
+
+  const animatedRingColor = useDerivedValue(() =>
+    interpolateColor(
+      stateIndex.value,
+      [0, 1, 2, 3],
+      [Theme.colors.textSecondary, Theme.colors.warning, Theme.colors.accent, Theme.colors.danger]
+    )
+  );
+
+  const animatedRingStrokeWidth = useDerivedValue(() => 4 + pulse.value * 1.5);
+  const animatedRingOpacity = useDerivedValue(() => {
+    if (guideState === 'ready' || guideState === 'error') return 1;
+    return 0.7 + pulse.value * 0.3;
+  });
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Canvas style={StyleSheet.absoluteFill}>
+        <Path path={maskPath} color="rgba(0, 0, 0, 0.56)" />
+        <Path
+          path={ringPath}
+          color={animatedRingColor}
+          opacity={animatedRingOpacity}
+          style="stroke"
+          strokeWidth={animatedRingStrokeWidth}
+        />
+      </Canvas>
+    </View>
+  );
+}
+
 export default function ScanIndexScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -86,7 +188,7 @@ export default function ScanIndexScreen() {
       contourMode: 'none',
       landmarkMode: 'none',
       classificationMode: 'none',
-      minFaceSize: 0.18,
+      minFaceSize: 0.12,
       trackingEnabled: true,
       cameraFacing: 'front',
       autoMode: false,
@@ -95,6 +197,13 @@ export default function ScanIndexScreen() {
   );
 
   const captureProgress = clamp(gate.stableFrames / REQUIRED_STABLE_FRAMES, 0, 1);
+  const guideState = useMemo<'idle' | 'warning' | 'ready' | 'error'>(() => {
+    if (captureError) return 'error';
+    if (gate.ready) return 'ready';
+    if (gate.faceCount === 0) return 'idle';
+    if (!gate.faceCountOk || !gate.distanceOk || !gate.poseOk) return 'warning';
+    return 'idle';
+  }, [captureError, gate.distanceOk, gate.faceCount, gate.faceCountOk, gate.poseOk, gate.ready]);
 
   const autoCapture = useCallback(async () => {
     if (captureInFlightRef.current || capturedUriRef.current) return;
@@ -133,9 +242,10 @@ export default function ScanIndexScreen() {
       const primaryFace = faces[0];
 
       if (!primaryFace) {
-        stableFramesRef.current = 0;
+        stableFramesRef.current = Math.max(0, stableFramesRef.current - STABLE_FRAME_DECAY);
         setGate({
           ...INITIAL_GATE_STATE,
+          stableFrames: stableFramesRef.current,
           guidance: 'Center your face in frame',
         });
         return;
@@ -157,7 +267,7 @@ export default function ScanIndexScreen() {
       const frameReady = faceCountOk && distanceOk && poseOk && lightOk;
       stableFramesRef.current = frameReady
         ? Math.min(REQUIRED_STABLE_FRAMES, stableFramesRef.current + 1)
-        : 0;
+        : Math.max(0, stableFramesRef.current - STABLE_FRAME_DECAY);
 
       const ready = stableFramesRef.current >= REQUIRED_STABLE_FRAMES;
 
@@ -245,6 +355,7 @@ export default function ScanIndexScreen() {
             faceDetectionOptions={faceDetectionOptions}
             faceDetectionCallback={handleFacesDetected}
           />
+          <FaceGuideOverlay guideState={guideState} />
 
           <View style={styles.overlay}>
             <View style={styles.card}>
