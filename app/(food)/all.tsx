@@ -1,14 +1,14 @@
 import { foodLogs } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
 import { hapticSelection } from '@/utils/haptics';
-import { desc } from 'drizzle-orm';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { desc } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { PressableScale } from 'pressto';
-import React, { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, PlatformColor, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type FoodLogListItem = {
@@ -51,15 +51,19 @@ export default function AllFoodLogsScreen() {
   const insets = useSafeAreaInsets();
   const db = useDbStore((state) => state.db);
   const { food } = useLocalSearchParams<{ food?: string | string[] }>();
+  const [searchQuery, setSearchQuery] = useState('');
+
   const filteredFoodName = useMemo(() => {
     const raw = Array.isArray(food) ? food[0] : food;
     const trimmed = raw?.trim();
     return trimmed ? trimmed : null;
   }, [food]);
-  const normalizedFoodFilter = useMemo(
-    () => (filteredFoodName ? normalizeFoodFilter(filteredFoodName) : null),
-    [filteredFoodName]
-  );
+
+  const normalizedFoodFilter = useMemo(() => {
+    // Both header search string AND deep link route props are joined as filter criteria
+    const activeFilter = searchQuery || filteredFoodName;
+    return activeFilter ? normalizeFoodFilter(activeFilter) : null;
+  }, [filteredFoodName, searchQuery]);
 
   const allFoodLogsQuery = useQuery({
     enabled: Boolean(db),
@@ -104,80 +108,92 @@ export default function AllFoodLogsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: filteredFoodName ?? 'All Logged Foods', headerShadowVisible: false }} />
-      <FlatList
+      <Stack.Screen 
+        options={{ 
+          title: filteredFoodName ?? 'All Logged Foods', 
+          headerShadowVisible: false,
+          headerSearchBarOptions: {
+            placeholder: 'Search logged foods',
+            hideWhenScrolling: false,
+            onChangeText: (e) => setSearchQuery(e.nativeEvent.text),
+            onCancelButtonPress: () => setSearchQuery(''),
+          }
+        }} 
+      />
+        <FlatList
         data={logs}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <Link href={`../${item.id}` as never} asChild>
-            <PressableScale onPress={hapticSelection} style={styles.row}>
-              <View style={styles.mainRow}>
-                {item.localImageUri ? (
-                  <Image source={item.localImageUri} style={styles.thumb} contentFit="cover" transition={140} />
-                ) : (
-                  <View style={styles.thumbFallback} />
-                )}
-                <View style={styles.content}>
-                  <View style={styles.header}>
-                    <Text selectable numberOfLines={1} style={styles.foodName}>
-                      {item.foodName}
-                    </Text>
-                    <View style={styles.headerRight}>
-                      <Text selectable style={styles.timeText}>
-                        {formatLoggedAt(item.createdAt, item.logDate)}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={17} color="rgba(15, 23, 42, 0.32)" />
+        renderItem={({ item, index }) => (
+          <React.Fragment key={item.id}>
+            {index > 0 && <View style={styles.rowSeparator} />}
+            <Link href={`../${item.id}` as never} asChild>
+              <PressableScale 
+                onPress={hapticSelection} 
+                style={StyleSheet.flatten([
+                  styles.listItem,
+                  index === 0 && styles.listFirstItem,
+                  index === logs.length - 1 && styles.listLastItem
+                ])}
+              >
+                <View style={styles.row}>
+                  <View style={styles.mainRow}>
+                    {item.localImageUri ? (
+                      <Image source={item.localImageUri} style={styles.thumb} contentFit="cover" transition={140} />
+                    ) : (
+                      <View style={styles.thumbFallback}>
+                        <Ionicons name="image-outline" size={18} color="rgba(15, 23, 42, 0.36)" />
+                      </View>
+                    )}
+                    <View style={styles.content}>
+                      <View style={styles.header}>
+                        <Text selectable numberOfLines={1} style={styles.foodName}>
+                          {item.foodName}
+                        </Text>
+                        <View style={styles.headerRight}>
+                          <Text selectable style={styles.timeText}>
+                            {formatLoggedAt(item.createdAt, item.logDate)}
+                          </Text>
+                          <Ionicons name="chevron-forward" size={17} color={PlatformColor('tertiaryLabel')} />
+                        </View>
+                      </View>
+                      <View style={styles.metaRow}>
+                        <Text selectable style={styles.metaPill}>
+                          {item.sodiumEstimateMg.toLocaleString()} mg
+                        </Text>
+                        <Text selectable style={styles.riskText}>
+                          {formatRiskLabel(item.bloatRiskLevel)}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                  <View style={styles.metaRow}>
-                    <Text selectable style={styles.metaPill}>
-                      {item.sodiumEstimateMg.toLocaleString()} mg
+                  {item.aiReasoning ? (
+                    <Text selectable numberOfLines={2} style={styles.reasonText}>
+                      {item.aiReasoning}
                     </Text>
-                    <Text selectable style={styles.riskText}>
-                      {formatRiskLabel(item.bloatRiskLevel)}
-                    </Text>
-                  </View>
+                  ) : null}
                 </View>
-              </View>
-              {item.aiReasoning ? (
-                <Text selectable numberOfLines={2} style={styles.reasonText}>
-                  {item.aiReasoning}
-                </Text>
-              ) : null}
-            </PressableScale>
-          </Link>
+              </PressableScale>
+            </Link>
+          </React.Fragment>
         )}
-        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
-        ListHeaderComponent={
-          <View style={styles.summaryHeader}>
-            {filteredFoodName ? (
-              <Text selectable style={styles.summaryFilterText}>
-                Filter: {filteredFoodName}
-              </Text>
-            ) : null}
-            <Text selectable style={styles.summaryText}>
-              {totalLogs} logged item{totalLogs === 1 ? '' : 's'}
-            </Text>
-          </View>
-        }
+        ItemSeparatorComponent={null}
+      
         ListEmptyComponent={
           <View style={styles.emptyCard}>
             <Text selectable style={styles.emptyTitle}>
-              {filteredFoodName ? `No logs for ${filteredFoodName}` : 'No food logs yet'}
+              {normalizedFoodFilter ? `No logs found for "${searchQuery || filteredFoodName}"` : 'No food logs yet'}
             </Text>
             <Text selectable style={styles.emptyText}>
-              {filteredFoodName
-                ? 'Try another food from Top Foods or clear the filter from Progress.'
+              {normalizedFoodFilter
+                ? 'Try searching for another food or clearing the filter.'
                 : 'Capture your first meal to start tracking sodium and bloat risk.'}
             </Text>
           </View>
         }
         contentInsetAdjustmentBehavior="automatic"
+        style={styles.listContainer}
         contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 12,
           paddingBottom: insets.bottom + 24,
-          flexGrow: 1,
         }}
       />
     </>
@@ -185,50 +201,76 @@ export default function AllFoodLogsScreen() {
 }
 
 const styles = StyleSheet.create({
+
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
   summaryHeader: {
     gap: 3,
     marginBottom: 12,
+    paddingLeft: 4,
   },
   summaryFilterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.48)',
+    color: PlatformColor('secondaryLabel'),
   },
   summaryText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.6)',
+    fontSize: 16,
+    fontWeight: '700',
+    color: PlatformColor('label'),
     fontVariant: ['tabular-nums'],
   },
   emptyCard: {
-    borderRadius: 14,
+    borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 6,
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.88)',
+    color: PlatformColor('label'),
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.58)',
+    color: PlatformColor('secondaryLabel'),
     lineHeight: 18,
   },
-  row: {
-    borderRadius: 14,
+  listItem: {
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+  },
+  listFirstItem: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 6,
+    overflow: 'hidden',
+  },
+  listLastItem: {
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+  },
+  row: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  listBackground: {
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    overflow: 'hidden',
   },
   rowSeparator: {
-    height: 8,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PlatformColor('separator'),
+    marginLeft: 74,
   },
   mainRow: {
     flexDirection: 'row',
@@ -238,21 +280,24 @@ const styles = StyleSheet.create({
   thumb: {
     width: 48,
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(15, 23, 42, 0.08)',
   },
   thumbFallback: {
     width: 48,
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
-    gap: 5,
+    gap: 6,
     minWidth: 0,
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -263,23 +308,23 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     flexShrink: 0,
   },
   foodName: {
     flex: 1,
     minWidth: 0,
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.78)',
+    color: PlatformColor('label'),
   },
   timeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.48)',
+    fontSize: 13,
+    fontWeight: '500',
+    color: PlatformColor('secondaryLabel'),
     fontVariant: ['tabular-nums'],
-    minWidth: 86,
+    minWidth: 62,
     textAlign: 'right',
   },
   metaRow: {
@@ -289,9 +334,9 @@ const styles = StyleSheet.create({
   },
   metaPill: {
     fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.64)',
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    fontWeight: '600',
+    color: PlatformColor('secondaryLabel'),
+    backgroundColor: PlatformColor('tertiarySystemGroupedBackground'),
     borderRadius: 999,
     borderCurve: 'continuous',
     paddingHorizontal: 8,
@@ -300,15 +345,15 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   riskText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.54)',
+    color: PlatformColor('secondaryLabel'),
     letterSpacing: 0.2,
   },
   reasonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.56)',
+    fontSize: 13,
+    fontWeight: '400',
+    color: PlatformColor('secondaryLabel'),
     lineHeight: 18,
   },
 });

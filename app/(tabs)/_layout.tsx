@@ -1,5 +1,5 @@
-import { NativeTabTrigger, NativeTabs } from 'expo-router/unstable-native-tabs'
 import { Theme } from '@/constants/Theme'
+import { NativeTabTrigger, NativeTabs } from 'expo-router/unstable-native-tabs'
 
 export default function TabsLayout() {
     return (

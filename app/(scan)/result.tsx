@@ -2,7 +2,6 @@ import { NativeButton } from '@/components/native-button';
 import { Theme } from '@/constants/Theme';
 import { faceScans } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
-import { deletePersistedScan, type ScanResultPayload } from '@/utils/scan-intake';
 import {
   hapticError,
   hapticImpact,
@@ -11,16 +10,17 @@ import {
   hapticWarning,
   stopAllAppHaptics,
 } from '@/utils/haptics';
-import { File, Paths } from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { Canvas, Group, ImageFormat, Path, Skia, makeImageFromView } from '@shopify/react-native-skia';
+import { deletePersistedScan, type ScanResultPayload } from '@/utils/scan-intake';
 import { Button as IOSButton, Host as IOSHost, HStack as IOSHStack, Spacer as IOSSpacer } from '@expo/ui/swift-ui';
 import { buttonStyle, controlSize, tint } from '@expo/ui/swift-ui/modifiers';
+import { Canvas, Group, ImageFormat, makeImageFromView, Path, Skia } from '@shopify/react-native-skia';
+import { useQuery } from '@tanstack/react-query';
+import { and, desc, eq } from 'drizzle-orm';
+import { File, Paths } from 'expo-file-system';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { and, desc, eq } from 'drizzle-orm';
-import { useQuery } from '@tanstack/react-query';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -59,13 +59,13 @@ function normalizeFileUri(uri: string): string {
 }
 
 function parseFlaggedAreas(value: string | null): string[] {
-  if (!value) return [];
+  if (!value) return[];
   try {
     const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return[];
     return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
   } catch {
-    return [];
+    return[];
   }
 }
 
@@ -82,8 +82,8 @@ function formatScanTimestamp(value?: string | null): string {
   }).format(parsed);
 }
 
-const GAUGE_SIZE = 206;
-const GAUGE_STROKE = 14;
+const GAUGE_SIZE = 220; // Slightly larger for an elegant editorial presence
+const GAUGE_STROKE = 6; // Thinner, precision-instrument stroke
 
 function BloatIndexGauge({ score }: { score: number }) {
   const clampedScore = Math.max(0, Math.min(100, Math.round(score)));
@@ -94,6 +94,7 @@ function BloatIndexGauge({ score }: { score: number }) {
   }, [clampedScore, progress]);
 
   const ringProgress = useDerivedValue(() => progress.value);
+  // Refined Apple HIG System Colors
   const ringColor = useDerivedValue(() =>
     interpolateColor(
       progress.value,
@@ -107,7 +108,7 @@ function BloatIndexGauge({ score }: { score: number }) {
     const path = Skia.Path.Make();
     path.addCircle(GAUGE_SIZE / 2, GAUGE_SIZE / 2, radius);
     return path;
-  }, []);
+  },[]);
 
   return (
     <View style={styles.gaugeWrap}>
@@ -120,7 +121,7 @@ function BloatIndexGauge({ score }: { score: number }) {
             path={circlePath}
             style="stroke"
             strokeWidth={GAUGE_STROKE}
-            color="#E5E7EB"
+            color="#F2F2F7"
             strokeCap="round"
           />
           <Path
@@ -184,8 +185,7 @@ export default function Result() {
         .from(faceScans);
 
       if (capturedAt && imageUri) {
-        const [row] = await builder
-          .where(and(eq(faceScans.createdAt, capturedAt), eq(faceScans.localImageUri, imageUri)))
+        const [row] = await builder.where(and(eq(faceScans.createdAt, capturedAt), eq(faceScans.localImageUri, imageUri)))
           .orderBy(desc(faceScans.id))
           .limit(1);
         return row ?? null;
@@ -226,8 +226,7 @@ export default function Result() {
   useEffect(
     () => () => {
       stopAllAppHaptics();
-    },
-    []
+    },[]
   );
 
   const shareFileAsync = useCallback(async (
@@ -358,15 +357,19 @@ export default function Result() {
               </View>
 
               <View style={styles.analysisCard}>
-                <Text selectable style={styles.analysisTitle}>
-                  Analysis
+                <Text selectable style={styles.sectionLabel}>
+                  ANALYSIS
                 </Text>
                 <Text selectable style={styles.analysisText}>
                   {analysisText || 'No analysis payload found for this result.'}
                 </Text>
-                <Text selectable style={styles.protocolText}>
-                  Protocol: {protocol || 'N/A'}
-                </Text>
+                {protocol ? (
+                  <Text selectable style={styles.protocolText}>
+                    <Text style={styles.protocolLabel}>Protocol: </Text>
+                    {protocol}
+                  </Text>
+                ) : null}
+                
                 <View style={styles.metaRow}>
                   <Text selectable style={styles.metaText}>
                     Scanned: {scanTimestampLabel}
@@ -451,11 +454,11 @@ export default function Result() {
 
       <Stack.Screen
         options={{
-          title: 'Clinical Report',
+          title: 'Report',
           headerShown: true,
           headerShadowVisible: false,
           headerTransparent: isLiquidGlassAvailable(),
-          headerStyle: { backgroundColor:isLiquidGlassAvailable() ? 'transparent' : '#F3F4F6' },
+          headerStyle: { backgroundColor: isLiquidGlassAvailable() ? 'transparent' : '#F2F2F7' },
         }}
       />
       {process.env.EXPO_OS === 'ios' ? (
@@ -493,39 +496,45 @@ export default function Result() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F2F2F7', // Standard Apple HIG Grouped Background
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 28,
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    gap: 16,
   },
   reportContent: {
-    gap: 14,
+    gap: 16,
   },
   photoImage: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    backgroundColor: '#E5E7EB',
-    boxShadow: '0 10px 24px rgba(17, 24, 39, 0.08)',
+    backgroundColor: '#E5E5EA',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#D1D1D6',
   },
   tagCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    boxShadow: '0 8px 20px rgba(17, 24, 39, 0.06)',
+    padding: 20,
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   sectionLabel: {
-    color: '#6B7280',
-    fontSize: 10,
+    color: '#8E8E93',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.8,
+    letterSpacing: 0.8,
   },
   tagRow: {
     flexDirection: 'row',
@@ -533,36 +542,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#22D3EE',
-    backgroundColor: '#E0F7FA',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    borderCurve: 'continuous',
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   tagText: {
-    color: '#0891B2',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#1C1C1E',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   emptyTagText: {
-    color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '500',
+    color: '#8E8E93',
+    fontSize: 14,
+    fontWeight: '400',
   },
   scoreCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    padding: 24,
     alignItems: 'center',
-    boxShadow: '0 8px 20px rgba(17, 24, 39, 0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   gaugeWrap: {
     width: GAUGE_SIZE,
     height: GAUGE_SIZE,
-    marginTop: 4,
+    marginTop: 8,
   },
   gaugeCanvas: {
     width: GAUGE_SIZE,
@@ -574,60 +588,69 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scoreLabel: {
-    color: '#9CA3AF',
-    fontSize: 10,
+    color: '#8E8E93',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.8,
-    marginBottom: 6,
+    letterSpacing: 0.8,
   },
   scoreValue: {
-    color: '#111111',
-    fontSize: 74,
-    lineHeight: 80,
-    fontWeight: '900',
+    color: '#1C1C1E',
+    fontSize: 68,
+    fontWeight: '300', // Thin, elegant weight reflecting Apple HIG typography
+    letterSpacing: -2,
     fontVariant: ['tabular-nums'],
   },
   analysisCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 8,
-    boxShadow: '0 6px 16px rgba(17, 24, 39, 0.05)',
-  },
-  analysisTitle: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '700',
+    padding: 20,
+    gap: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 8,
+    elevation: 1,
   },
   analysisText: {
-    color: '#374151',
-    fontSize: 15,
-    lineHeight: 22,
+    color: '#3A3A3C',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '400',
   },
   protocolText: {
-    color: '#6B7280',
-    fontSize: 13,
+    color: '#1C1C1E',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  protocolLabel: {
     fontWeight: '600',
+    color: '#8E8E93',
   },
   metaRow: {
-    gap: 3,
-    marginTop: 2,
+    marginTop: 12,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E5E5EA',
+    gap: 4,
   },
   metaText: {
-    color: '#9CA3AF',
+    color: '#8E8E93',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   actions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 2,
+    marginTop: 8,
   },
   resultActionsContainer: {
     width: '100%',
+    marginTop: 8,
   },
   iosActionsHost: {
     width: '100%',

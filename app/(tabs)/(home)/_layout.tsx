@@ -12,6 +12,15 @@ export default function HomeLayout() {
         options={{
           headerShown: true,
           title: 'Home',
+          unstable_headerLeftItems: () => [
+            {
+              type: 'button',
+              label: 'Settings',
+              icon: { type: 'sfSymbol', name: 'gearshape' },
+              
+              onPress: () => router.push('/(settings)' as never),
+            },
+          ],
           unstable_headerRightItems: () => [
             {
               type: 'button',

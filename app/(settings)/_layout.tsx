@@ -1,9 +1,24 @@
-import { Stack } from 'expo-router'
+import { Stack, useRouter } from 'expo-router';
 
 export default function SettingsLayout() {
-    return (
-        <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack>
+  const router = useRouter();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerTransparent: true,
+        headerShadowVisible: false,
+        unstable_headerLeftItems: () => [
+          {
+            type: 'button',
+            label: 'Back',
+            icon: { type: 'sfSymbol', name: 'chevron.backward' },
+            onPress: () => router.back(),
+          },
+        ],
+      }}
+    >
+      <Stack.Screen name="index" options={{ title: 'Settings' }} />
+    </Stack>
     )
 }

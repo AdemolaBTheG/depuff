@@ -1,1 +1,1 @@
-export const ENTITLEMENT_ID = 'Miru Pro';
+export const ENTITLEMENT_ID = 'Depuff Pro';

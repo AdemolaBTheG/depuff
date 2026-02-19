@@ -26,9 +26,10 @@ import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { PlatformColor, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const DAYS_TO_SHOW = 7;
 const WATER_STEP_ML = 250;
 const SCAN_RING_SIZE = 98;
@@ -480,15 +481,14 @@ export default function HomeIndex() {
   }, [db, queryClient, selectedDate]);
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={styles.container}
-      contentContainerStyle={{
-        paddingTop: 16,
-        paddingBottom: insets.bottom + 24,
-        paddingHorizontal: 16,
-        gap: 18,
-      }}
+    <View style={styles.container}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={StyleSheet.absoluteFill}
+        contentContainerStyle={[
+        styles.contentContainer,
+        { paddingBottom: insets.bottom + 24 }
+      ]}
     >
       <View style={styles.weekRow}>
         {weekItems.map((item) => {
@@ -610,7 +610,7 @@ export default function HomeIndex() {
             </View>
           </View>
         ) : (
-          <View style={styles.scanEmptyState}>
+          <PressableScale onPress={handleOpenScan} style={styles.scanEmptyState}>
             <View style={styles.scanEmptyIconWrap}>
               <Ionicons name="scan" size={44} color="rgba(15, 23, 42, 0.45)" />
             </View>
@@ -637,25 +637,15 @@ export default function HomeIndex() {
                 ]}
               />
             </IOSHost>
-          </View>
+          </PressableScale>
         )}
       </View>
-      <View style={{ flexDirection: 'column', width: '100%', gap: 8, alignItems: 'stretch', justifyContent: 'center' }}>
-        <View
-          style={{
-            flex: 1,
-            borderRadius: 16,
-            borderCurve: 'continuous',
-            paddingHorizontal: 12,
-            paddingVertical: 16,
-            backgroundColor: 'white',
-            gap: 8,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="water" size={18} color="rgba(0,0,0,0.3)" />
-              <Text selectable style={{ fontSize: 12, fontWeight: '600', color: 'rgba(0,0,0,0.38)' }}>
+      <View style={styles.metricsStack}>
+        <View style={styles.metricCard}>
+          <View style={styles.metricHeaderRow}>
+            <View style={styles.metricHeaderLeft}>
+              <Ionicons name="water" size={18} color={PlatformColor('tertiaryLabel')} />
+              <Text selectable style={styles.metricHeaderLabel}>
                 HYDRATION
               </Text>
             </View>
@@ -686,21 +676,11 @@ export default function HomeIndex() {
           </Text>
         </View>
 
-        <View
-          style={{
-            flex: 1,
-            borderRadius: 16,
-            borderCurve: 'continuous',
-            paddingHorizontal: 12,
-            paddingVertical: 16,
-            backgroundColor: 'white',
-            gap: 8,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="flash" size={18} color="rgba(0,0,0,0.3)" />
-              <Text selectable style={{ fontSize: 12, fontWeight: '600', color: 'rgba(0,0,0,0.38)' }}>
+        <View style={styles.metricCard}>
+          <View style={styles.metricHeaderRow}>
+            <View style={styles.metricHeaderLeft}>
+              <Ionicons name="flash" size={18} color={PlatformColor('tertiaryLabel')} />
+              <Text selectable style={styles.metricHeaderLabel}>
                 SODIUM
               </Text>
             </View>
@@ -735,12 +715,12 @@ export default function HomeIndex() {
           </Text>
           <Link href="/(food)/all" asChild>
             <PressableScale onPress={hapticSelection} style={styles.recentFoodsHeaderAction}>
-              <Ionicons name="chevron-forward" size={19} color="rgba(0, 0, 0, 0.78)" />
+              <Ionicons name="chevron-forward" size={19} color={PlatformColor('secondaryLabel')} />
             </PressableScale>
           </Link>
         </View>
         {recentFoods.length === 0 ? (
-          <View style={styles.recentFoodCardEmpty}>
+          <PressableScale onPress={handleLogFood} style={styles.recentFoodCardEmpty}>
             <Text selectable style={styles.recentFoodsEmpty}>
               No foods logged for this day.
             </Text>
@@ -764,13 +744,15 @@ export default function HomeIndex() {
                 </Text>
               </PressableScale>
             )}
-          </View>
+          </PressableScale>
         ) : (
           <View style={styles.recentFoodsList}>
-            {recentFoods.map((food) => (
-              <Link key={food.id} href={`/(food)/${food.id}` as never} asChild>
-                <PressableScale onPress={hapticSelection} style={styles.recentFoodRow}>
-                  <View style={styles.recentFoodMainRow}>
+            {recentFoods.map((food, index) => (
+              <React.Fragment key={food.id}>
+                {index > 0 && <View style={styles.recentFoodSeparator} />}
+                <Link href={`/(food)/${food.id}` as never} asChild>
+                  <PressableScale onPress={hapticSelection} style={styles.recentFoodRow}>
+                    <View style={styles.recentFoodMainRow}>
                     {food.localImageUri ? (
                       <Image
                         source={food.localImageUri}
@@ -795,7 +777,7 @@ export default function HomeIndex() {
                           <Ionicons
                             name="chevron-forward"
                             size={17}
-                            color="rgba(15, 23, 42, 0.32)"
+                            color={PlatformColor('tertiaryLabel')}
                           />
                         </View>
                       </View>
@@ -810,23 +792,31 @@ export default function HomeIndex() {
                     </View>
                   </View>
                   {food.aiReasoning ? (
-                    <Text selectable numberOfLines={2} style={styles.recentFoodReason}>
-                      {food.aiReasoning}
-                    </Text>
-                  ) : null}
-                </PressableScale>
-              </Link>
+                      <Text selectable numberOfLines={2} style={styles.recentFoodReason}>
+                        {food.aiReasoning}
+                      </Text>
+                    ) : null}
+                  </PressableScale>
+                </Link>
+              </React.Fragment>
             ))}
           </View>
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: PlatformColor('systemGroupedBackground'),
+  },
+  contentContainer: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+    gap: 18,
   },
   weekRow: {
     flexDirection: 'row',
@@ -839,36 +829,36 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dayLabel: {
-    color: '#6B7280',
+    color: PlatformColor('secondaryLabel'),
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.6,
   },
   dayLabelSelected: {
-    color: '#111827',
+    color: PlatformColor('label'),
   },
   stepHint: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.45)',
+    color: PlatformColor('tertiaryLabel'),
   },
   scanCard: {
     borderRadius: 20,
     borderCurve: 'continuous',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'stretch',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
   },
   scanCardEmpty: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
     borderColor: 'rgba(15, 23, 42, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   scanCardComplete: {
-    backgroundColor: 'white',
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
   },
   scanButtonHost: {
     width: '100%',
@@ -890,12 +880,12 @@ const styles = StyleSheet.create({
   scanEmptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.92)',
+    color: PlatformColor('label'),
   },
   scanEmptyDescription: {
     fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.6)',
+    color: PlatformColor('secondaryLabel'),
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -925,15 +915,15 @@ const styles = StyleSheet.create({
   scanMetaTopPrimary: {
     flex: 1,
     minWidth: 0,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.55)',
+    color: PlatformColor('secondaryLabel'),
     fontVariant: ['tabular-nums'],
   },
   scanMetaTopSecondary: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.52)',
+    color: PlatformColor('tertiaryLabel'),
     fontVariant: ['tabular-nums'],
   },
   scanSummaryTopRow: {
@@ -976,33 +966,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scanRingScore: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '800',
-    color: 'rgba(15, 23, 42, 0.9)',
+    color: PlatformColor('label'),
     fontVariant: ['tabular-nums'],
   },
   scanScoreCaption: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.46)',
+    color: PlatformColor('secondaryLabel'),
   },
   scanTrendTextBetter: {
-    color: 'rgba(21, 128, 61, 0.92)',
+    color: PlatformColor('systemGreen'),
   },
   scanTrendTextWorse: {
-    color: 'rgba(185, 28, 28, 0.92)',
+    color: PlatformColor('systemRed'),
   },
   scanFeedbackText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.67)',
+    color: PlatformColor('secondaryLabel'),
     lineHeight: 18,
+    marginTop: 4,
   },
   scanFocusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: 6,
+    marginTop: 4,
   },
   scanFocusChip: {
     borderRadius: 999,
@@ -1020,10 +1012,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 2,
+    marginTop: 6,
   },
   scanActionButtonHost: {
     flex: 1,
+  },
+  metricsStack: {
+    flexDirection: 'column', 
+    width: '100%', 
+    gap: 16, 
+    alignItems: 'stretch', 
+    justifyContent: 'center'
+  },
+  metricCard: {
+    flex: 1,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    gap: 12,
+  },
+  metricHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metricHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricHeaderLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PlatformColor('tertiaryLabel'),
   },
   hydrationRow: {
     flexDirection: 'row',
@@ -1034,25 +1057,26 @@ const styles = StyleSheet.create({
   metricTargetLine: {
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.42)',
+    color: PlatformColor('secondaryLabel'),
   },
   metricValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.92)',
+    color: PlatformColor('label'),
   },
   metricTarget: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.42)',
+    color: PlatformColor('secondaryLabel'),
   },
   recentFoodCardsSection: {
-    gap: 8,
+    gap: 12,
   },
   recentFoodsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingLeft: 4, 
   },
   recentFoodsHeaderAction: {
     width: 30,
@@ -1063,22 +1087,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recentFoodsTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: 'rgba(0, 0, 0, 0.9)',
+    color: PlatformColor('label'),
   },
   recentFoodCardEmpty: {
-    borderRadius: 14,
+    borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
   },
   recentFoodsEmpty: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.45)',
+    color: PlatformColor('secondaryLabel'),
   },
   recentFoodEmptyActionHost: {
     alignSelf: 'flex-start',
@@ -1097,15 +1121,23 @@ const styles = StyleSheet.create({
     color: 'rgba(34, 211, 238, 1)',
   },
   recentFoodsList: {
-    gap: 8,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    overflow: 'hidden',
+  },
+  recentFoodListItem: {
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
   },
   recentFoodRow: {
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  recentFoodSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PlatformColor('separator'),
+    marginLeft: 74,
   },
   recentFoodMainRow: {
     flexDirection: 'row',
@@ -1115,14 +1147,14 @@ const styles = StyleSheet.create({
   recentFoodThumb: {
     width: 48,
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(15, 23, 42, 0.08)',
   },
   recentFoodThumbFallback: {
     width: 48,
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     borderCurve: 'continuous',
     backgroundColor: 'rgba(15, 23, 42, 0.08)',
     alignItems: 'center',
@@ -1130,8 +1162,9 @@ const styles = StyleSheet.create({
   },
   recentFoodContent: {
     flex: 1,
-    gap: 5,
+    gap: 6,
     minWidth: 0,
+    justifyContent: 'center',
   },
   recentFoodHeader: {
     flexDirection: 'row',
@@ -1142,21 +1175,21 @@ const styles = StyleSheet.create({
   recentFoodHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     flexShrink: 0,
   },
   recentFoodName: {
     flex: 1,
     minWidth: 0,
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.78)',
+    color: PlatformColor('label'),
   },
   recentFoodTime: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.48)',
+    fontSize: 13,
+    fontWeight: '500',
+    color: PlatformColor('secondaryLabel'),
     fontVariant: ['tabular-nums'],
     minWidth: 62,
     textAlign: 'right',
@@ -1168,9 +1201,9 @@ const styles = StyleSheet.create({
   },
   recentFoodMetaPill: {
     fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.64)',
-    backgroundColor: 'rgba(15, 23, 42, 0.08)',
+    fontWeight: '600',
+    color: PlatformColor('secondaryLabel'),
+    backgroundColor: PlatformColor('tertiarySystemGroupedBackground'),
     borderRadius: 999,
     borderCurve: 'continuous',
     paddingHorizontal: 8,
@@ -1179,15 +1212,15 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   recentFoodRisk: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.54)',
+    color: PlatformColor('secondaryLabel'),
     letterSpacing: 0.2,
   },
   recentFoodReason: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.56)',
+    fontSize: 13,
+    fontWeight: '400',
+    color: PlatformColor('secondaryLabel'),
     lineHeight: 18,
   },
 });

@@ -1,11 +1,11 @@
 import { foodLogs } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
-import { eq } from 'drizzle-orm';
 import { useQuery } from '@tanstack/react-query';
+import { eq } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { PlatformColor, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type FoodLogDetail = {
@@ -87,90 +87,91 @@ export default function FoodLogDetailScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: insets.bottom + 24,
-        gap: 12,
-      }}
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
     >
-      <Stack.Screen options={{ title: foodLog?.foodName ?? 'Food Log', headerShadowVisible: false }} />
+      <Stack.Screen 
+        options={{ 
+          title: foodLog?.foodName ?? 'Entry Details', 
+          headerTransparent: true,
+          headerShadowVisible: false,
+        }} 
+      />
 
       {foodId === null ? (
-        <View style={styles.card}>
-          <Text selectable style={styles.title}>
-            Invalid food log
+        <View style={styles.emptyStateCard}>
+          <Text selectable style={styles.emptyStateTitle}>
+            Invalid Record
           </Text>
-          <Text selectable style={styles.secondary}>
-            This entry could not be opened.
+          <Text selectable style={styles.emptyStateSecondary}>
+            This dietary entry could not be retrieved.
           </Text>
         </View>
       ) : foodLogQuery.isLoading ? (
-        <View style={styles.card}>
-          <Text selectable style={styles.secondary}>
-            Loading food details...
+        <View style={styles.emptyStateCard}>
+          <Text selectable style={styles.emptyStateSecondary}>
+            Loading entry details...
           </Text>
         </View>
       ) : !foodLog ? (
-        <View style={styles.card}>
-          <Text selectable style={styles.title}>
-            Food log not found
+        <View style={styles.emptyStateCard}>
+          <Text selectable style={styles.emptyStateTitle}>
+            Record Unavailable
           </Text>
-          <Text selectable style={styles.secondary}>
-            This entry may have been removed.
+          <Text selectable style={styles.emptyStateSecondary}>
+            This entry may have been deleted or moved.
           </Text>
         </View>
       ) : (
         <>
           {foodLog.localImageUri ? (
             <View style={styles.imageCard}>
-              <Image source={foodLog.localImageUri} style={styles.image} contentFit="cover" transition={180} />
+              <Image 
+                source={foodLog.localImageUri} 
+                style={styles.image} 
+                contentFit="cover" 
+                transition={200} 
+              />
             </View>
           ) : null}
 
-          <View style={styles.card}>
-            <Text selectable style={styles.label}>
-              Food
-            </Text>
-            <Text selectable style={styles.value}>
-              {foodLog.foodName}
-            </Text>
+          <View style={styles.detailGroup}>
+          
+            <View style={styles.detailRow}>
+              <Text selectable style={styles.label}>
+                LOGGED
+              </Text>
+              <Text selectable style={styles.secondaryValue}>
+                {formatLoggedAt(foodLog.createdAt)}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.metaGrid}>
-            <View style={styles.card}>
+            <View style={styles.metricCard}>
               <Text selectable style={styles.label}>
-                Sodium
+                SODIUM ESTIMATE
               </Text>
-              <Text selectable style={styles.value}>
-                {foodLog.sodiumEstimateMg.toLocaleString()} mg
+              <Text selectable style={styles.metricValue}>
+                {foodLog.sodiumEstimateMg.toLocaleString()} <Text style={styles.metricUnit}>mg</Text>
               </Text>
             </View>
-            <View style={styles.card}>
+            <View style={styles.metricCard}>
               <Text selectable style={styles.label}>
-                Risk
+                BLOAT RISK
               </Text>
-              <Text selectable style={styles.value}>
+              <Text selectable style={styles.metricValue}>
                 {formatRiskLabel(foodLog.bloatRiskLevel)}
               </Text>
             </View>
           </View>
 
-          <View style={styles.card}>
-            <Text selectable style={styles.label}>
-              Logged
-            </Text>
-            <Text selectable style={styles.secondary}>
-              {formatLoggedAt(foodLog.createdAt)}
-            </Text>
-          </View>
-
           {foodLog.aiReasoning ? (
-            <View style={styles.card}>
+            <View style={styles.insightCard}>
               <Text selectable style={styles.label}>
-                Insight
+                ANALYSIS
               </Text>
-              <Text selectable style={styles.secondary}>
+              <Text selectable style={styles.insightText}>
                 {foodLog.aiReasoning}
               </Text>
             </View>
@@ -182,49 +183,116 @@ export default function FoodLogDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: PlatformColor('systemGroupedBackground'),
+  },
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 16,
+  },
   imageCard: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderCurve: 'continuous',
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
     overflow: 'hidden',
-    backgroundColor: 'rgba(15, 23, 42, 0.06)',
   },
   image: {
     width: '100%',
-    aspectRatio: 1.12,
+    aspectRatio: 1, // 1:1 perfect square creates a more editorial, curated look
+  },
+  detailGroup: {
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+  },
+  detailRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 4,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: PlatformColor('separator'),
+    marginLeft: 20, // Align divider to text, standard iOS behavior
   },
   metaGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 16,
   },
-  card: {
+  metricCard: {
     flex: 1,
-    borderRadius: 16,
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    gap: 8,
   },
-  title: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.92)',
+  insightCard: {
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 10,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(15, 23, 42, 0.5)',
+    color: PlatformColor('tertiaryLabel'),
+    letterSpacing: 0.8,
   },
-  value: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.9)',
-    fontVariant: ['tabular-nums'],
+  primaryValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: PlatformColor('label'),
+    letterSpacing: -0.4,
   },
-  secondary: {
-    fontSize: 14,
+  secondaryValue: {
+    fontSize: 15,
     fontWeight: '500',
-    color: 'rgba(15, 23, 42, 0.62)',
-    lineHeight: 20,
+    color: PlatformColor('label'),
+  },
+  metricValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: PlatformColor('label'),
+    letterSpacing: -0.6,
+  },
+  metricUnit: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: PlatformColor('secondaryLabel'),
+    letterSpacing: 0,
+  },
+  insightText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: PlatformColor('label'),
+    lineHeight: 24, // High readability line-height for analysis text
+  },
+  emptyStateCard: {
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyStateTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: PlatformColor('label'),
+    letterSpacing: -0.3,
+  },
+  emptyStateSecondary: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: PlatformColor('secondaryLabel'),
+    textAlign: 'center',
   },
 });

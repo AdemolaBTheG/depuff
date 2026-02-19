@@ -1,6 +1,12 @@
 import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+export type ActionItem = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
+
 export const dailyLogs = sqliteTable('daily_logs', {
   // Primary Key is the DATE string (e.g., "2024-10-24").
   // This prevents duplicate rows for the same day and makes querying easy.
@@ -19,6 +25,9 @@ export const dailyLogs = sqliteTable('daily_logs', {
   // Sodium Status for the day (Calculated from Food Logs)
   // 'safe' | 'warning' | 'danger'
   sodiumStatus: text('sodium_status').default('safe'),
+
+  // AI-generated daily checklist stringified as a JSON array
+  actionableSteps: text('actionable_steps', { mode: 'json' }).$type<ActionItem[]>(),
 });
 
 export const faceScans = sqliteTable('face_scans', {
