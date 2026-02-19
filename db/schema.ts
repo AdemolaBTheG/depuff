@@ -28,7 +28,7 @@ export const faceScans = sqliteTable('face_scans', {
   createdAt: text('created_at')
     .default(sql`CURRENT_TIMESTAMP`)
     .notNull(),
-
+ 
   // The "Bloat Score" (0-100)
   score: integer('score').notNull(),
 

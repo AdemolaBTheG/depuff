@@ -28,8 +28,8 @@ type WeekdayVariant = 'reset' | 'boost' | 'sculpt' | 'release' | 'balance' | 'de
 
 const PORT = Number(process.env.PORT ?? 8080);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
-const FACE_MODEL = process.env.GEMINI_FACE_MODEL ?? 'gemini-3-flash';
-const FOOD_MODEL = process.env.GEMINI_FOOD_MODEL ?? 'gemini-3-flash';
+const FACE_MODEL = process.env.GEMINI_FACE_MODEL ?? 'gemini-2.5-flash';
+const FOOD_MODEL = process.env.GEMINI_FOOD_MODEL ?? 'gemini-2.5-flash';
 const MIN_RESPONSE_DELAY_MS = Number(process.env.MIN_RESPONSE_DELAY_MS ?? 1500);
 const TMP_SCAN_DIR = process.env.TMP_SCAN_DIR ?? '/tmp/scans';
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;

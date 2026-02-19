@@ -1,8 +1,18 @@
 import { NativeButton } from '@/components/native-button';
 import Shimmer from '@/components/shimmer';
 import { Theme } from '@/constants/Theme';
+import { BridgeApiError } from '@/services/bridge-api';
 import { useAnalyzeFaceMutation } from '@/hooks/useBridgeApi';
 import { persistScanResult } from '@/utils/scan-intake';
+import {
+  hapticError,
+  hapticImpact,
+  hapticSelection,
+  hapticSuccess,
+  startAnalyzingHaptic,
+  stopAnalyzingHaptic,
+  stopAllAppHaptics,
+} from '@/utils/haptics';
 import { Button as IOSButton, Host as IOSHost, HStack as IOSHStack, Spacer as IOSSpacer } from '@expo/ui/swift-ui';
 import { buttonStyle, controlSize, disabled as iosDisabled, tint } from '@expo/ui/swift-ui/modifiers';
 import { useIsFocused } from '@react-navigation/native';
@@ -82,6 +92,16 @@ function normalizeFileUri(path: string): string {
 }
 
 function parseError(error: unknown): string {
+  if (error instanceof BridgeApiError) {
+    const serverError =
+      typeof error.body === 'object' &&
+      error.body !== null &&
+      'error' in error.body &&
+      typeof (error.body as { error?: unknown }).error === 'string'
+        ? (error.body as { error: string }).error
+        : null;
+    return serverError ?? error.message;
+  }
   if (error instanceof Error) return error.message;
   return 'Unable to analyze this scan.';
 }
@@ -237,6 +257,11 @@ export default function ScanIndexScreen() {
     setAnalysisError(null);
   }, []);
 
+  const handleRetake = useCallback(() => {
+    hapticSelection();
+    clearCapture();
+  }, [clearCapture]);
+
   const isAnalyzing = analyzeFaceMutation.isPending || isPersisting;
   const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
 
@@ -271,6 +296,7 @@ export default function ScanIndexScreen() {
   const analyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
     setAnalysisError(null);
+    hapticImpact('light');
 
     const createdAt = capturedAt ?? new Date().toISOString();
 
@@ -291,6 +317,8 @@ export default function ScanIndexScreen() {
         createdAt,
         result,
       });
+      stopAnalyzingHaptic();
+      hapticSuccess();
       router.push({
         pathname: '/(scan)/result',
         params: {
@@ -300,7 +328,9 @@ export default function ScanIndexScreen() {
         },
       });
     } catch (error) {
+      stopAnalyzingHaptic();
       setAnalysisError(parseError(error));
+      hapticError();
     } finally {
       setIsPersisting(false);
     }
@@ -310,6 +340,25 @@ export default function ScanIndexScreen() {
     if (!isFocused) return;
     clearCapture();
   }, [isFocused, clearCapture]);
+
+  useEffect(() => {
+    if (!capturedImageUri || !isAnalyzing) {
+      stopAnalyzingHaptic();
+      return;
+    }
+
+    startAnalyzingHaptic();
+    return () => {
+      stopAnalyzingHaptic();
+    };
+  }, [capturedImageUri, isAnalyzing]);
+
+  useEffect(
+    () => () => {
+      stopAllAppHaptics();
+    },
+    []
+  );
 
   const autoCapture = useCallback(async () => {
     if (captureInFlightRef.current || capturedUriRef.current) return;
@@ -331,9 +380,11 @@ export default function ScanIndexScreen() {
       capturedUriRef.current = uri;
       setCapturedImageUri(uri);
       setCapturedAt(new Date().toISOString());
+      hapticImpact('medium');
     } catch (error) {
       stableFramesRef.current = 0;
       setCaptureError(error instanceof Error ? error.message : 'Failed to capture image');
+      hapticError();
     } finally {
       setIsCapturing(false);
       captureInFlightRef.current = false;
@@ -489,7 +540,7 @@ export default function ScanIndexScreen() {
                       <IOSButton
                         label="Retake"
                         role="cancel"
-                        onPress={clearCapture}
+                        onPress={handleRetake}
                         modifiers={[
                           iosDisabled(isAnalyzing),
                           controlSize('large'),
@@ -520,7 +571,7 @@ export default function ScanIndexScreen() {
                             label="Retake"
                             kind="secondary"
                             role="cancel"
-                            onPress={clearCapture}
+                            onPress={handleRetake}
                             disabled={isAnalyzing}
                           />
                         </View>

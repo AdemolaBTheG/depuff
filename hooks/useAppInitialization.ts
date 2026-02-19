@@ -12,11 +12,8 @@ export function useAppInitialization() {
   const { initializeDb } = useDbStore();
 
   useEffect(() => {
-    initializeDb();
-  }, [initializeDb]);
-
-  useEffect(() => {
     let userObserver: any | null = null;
+    let isMounted = true;
 
     const configurePurchases = async () => {
       if (Platform.OS === 'ios' && rc_apple_api_key) {
@@ -61,19 +58,28 @@ export function useAppInitialization() {
     };
 
     (async () => {
-      await configurePurchases();
-      await initOneSignal();
-      await syncIdsToRevenueCat();
-      attachObserver();
-      setIsReady(true);
+      try {
+        await initializeDb();
+        await configurePurchases();
+        await initOneSignal();
+        await syncIdsToRevenueCat();
+        attachObserver();
+      } catch (error) {
+        console.warn('App initialization failed', error);
+      } finally {
+        if (isMounted) {
+          setIsReady(true);
+        }
+      }
     })();
 
     return () => {
+      isMounted = false;
       if (userObserver) {
         OneSignal.User.removeEventListener?.('change', userObserver);
       }
     };
-  }, []);
+  }, [initializeDb]);
 
   return { isReady };
 }

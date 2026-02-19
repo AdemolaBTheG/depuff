@@ -1,6 +1,8 @@
 import { dailyLogs, faceScans } from '@/db/schema';
 import { analyzeFace, type AnalyzeFaceResponse, type BridgeRoutineProtocol } from '@/services/bridge-api';
 import { useDbStore } from '@/stores/dbStore';
+import { File } from 'expo-file-system';
+import { and, eq } from 'drizzle-orm';
 
 export type ScanRoutineKey = BridgeRoutineProtocol;
 
@@ -70,4 +72,46 @@ export async function persistScanResult({
         dailyBloatScore: result.score,
       },
     });
+}
+
+type DeleteScanParams = {
+  imageUri?: string;
+  createdAt?: string;
+};
+
+function normalizeFileUri(uri: string): string {
+  return uri.startsWith('file://') ? uri : `file://${uri}`;
+}
+
+async function tryDeleteLocalImage(imageUri?: string): Promise<void> {
+  if (!imageUri) return;
+  try {
+    const file = new File(normalizeFileUri(imageUri));
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // ignore file deletion errors so DB cleanup can still proceed
+  }
+}
+
+export async function deletePersistedScan({ imageUri, createdAt }: DeleteScanParams): Promise<void> {
+  const db = useDbStore.getState().db;
+  if (!db) {
+    throw new Error('Database is not initialized');
+  }
+
+  if (imageUri && createdAt) {
+    await db
+      .delete(faceScans)
+      .where(and(eq(faceScans.localImageUri, imageUri), eq(faceScans.createdAt, createdAt)));
+  } else if (imageUri) {
+    await db.delete(faceScans).where(eq(faceScans.localImageUri, imageUri));
+  } else if (createdAt) {
+    await db.delete(faceScans).where(eq(faceScans.createdAt, createdAt));
+  } else {
+    throw new Error('Either imageUri or createdAt is required to delete scan');
+  }
+
+  await tryDeleteLocalImage(imageUri);
 }

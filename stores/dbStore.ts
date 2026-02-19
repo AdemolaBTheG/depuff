@@ -6,6 +6,43 @@ import { drizzle } from "drizzle-orm/expo-sqlite";
 import { openDatabaseSync } from "expo-sqlite";
 import { create } from "zustand";
 
+const SCHEMA_BOOTSTRAP_SQL = `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS daily_logs (
+  date text PRIMARY KEY NOT NULL,
+  water_intake integer DEFAULT 0,
+  routine_completed integer DEFAULT false,
+  daily_bloat_score integer,
+  sodium_status text DEFAULT 'safe'
+);
+
+CREATE TABLE IF NOT EXISTS face_scans (
+  id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+  created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  score integer NOT NULL,
+  feedback text,
+  flagged_areas text,
+  local_image_uri text
+);
+
+CREATE TABLE IF NOT EXISTS food_logs (
+  id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+  log_date text NOT NULL,
+  created_at text DEFAULT CURRENT_TIMESTAMP,
+  food_name text,
+  sodium_estimate_mg integer,
+  bloat_risk_level text,
+  ai_reasoning text,
+  local_image_uri text,
+  FOREIGN KEY (log_date) REFERENCES daily_logs(date) ON UPDATE no action ON DELETE no action
+);
+`;
+
+function ensureSchema(expoDb: ReturnType<typeof openDatabaseSync>) {
+    expoDb.execSync(SCHEMA_BOOTSTRAP_SQL);
+}
+
 interface DatabaseState {
     expoDb: ReturnType<typeof openDatabaseSync> | null;
     db: ExpoSQLiteDatabase<typeof schema> | null;
@@ -29,7 +66,7 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
 
     initializeDb: async (options = {}) => {
         const {
-            name = "mirusiu.db",
+            name = "debloat.db",
             useNewConnection = false,
             enableChangeListener = true,
         } = options;
@@ -45,6 +82,8 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
                 useNewConnection,
                 enableChangeListener,
             });
+
+            ensureSchema(expoDb);
 
             const db = drizzle(expoDb, { schema });
             // await migrate(db, migrations);
@@ -72,6 +111,8 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
             if (!newExpoDb) {
                 throw new Error("Failed to create new database instance");
             }
+
+            ensureSchema(newExpoDb);
 
             const newDb = drizzle(newExpoDb, { schema });
 
