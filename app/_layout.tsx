@@ -17,6 +17,21 @@ import { useTranslation } from 'react-i18next';
 import { PostHogProvider } from 'posthog-react-native';
 import { posthog } from '../src/config/posthog';
 import '../global.css';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://d63ec639d9022fe557c7174c38d849e7@o4509184946536448.ingest.de.sentry.io/4510920452931664',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: false,
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 const queryClient = new QueryClient();
 
@@ -27,7 +42,7 @@ SplashScreen.setOptions({
   fade: true,
 });
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const { isReady } = useAppInitialization();
   const subscription = useSubscriptionStatus();
   const { t } = useTranslation();
@@ -140,4 +155,4 @@ export default function RootLayout() {
       </PostHogProvider>
     </GestureHandlerRootView>
   );
-}
+});

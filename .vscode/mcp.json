@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "Sentry": {
+      "url": "https://mcp.sentry.dev/mcp/ademola-kevin-bello/depuff",
+      "type": "http"
+    }
+  }
+}

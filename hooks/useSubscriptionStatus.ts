@@ -1,3 +1,4 @@
+import zustandStorage from '@/stores/storage';
 import { useEffect, useState } from 'react';
 import Purchases, { CustomerInfo } from 'react-native-purchases';
 import { ENTITLEMENT_ID } from '../constants/Subscriptions';
@@ -8,35 +9,74 @@ interface SubscriptionStatus {
   setIsPro: (isPro: boolean) => void;
 }
 
+const SUBSCRIPTION_CACHE_KEY = 'subscription-status-cache-v1';
+type CachedSubscriptionStatus = {
+  isPro: boolean;
+};
+
+function readCachedSubscriptionStatus(): CachedSubscriptionStatus | null {
+  const raw = zustandStorage.getItem(SUBSCRIPTION_CACHE_KEY);
+  if (!raw || typeof raw !== 'string') return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<CachedSubscriptionStatus>;
+    if (typeof parsed.isPro !== 'boolean') return null;
+    return {
+      isPro: parsed.isPro,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedSubscriptionStatus(isPro: boolean) {
+  const payload: CachedSubscriptionStatus = {
+    isPro,
+  };
+  zustandStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(payload));
+}
+
 export function useSubscriptionStatus(): SubscriptionStatus {
-  const [isPro, setIsPro] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedStatus = readCachedSubscriptionStatus();
+  const [isPro, setIsProState] = useState(cachedStatus?.isPro ?? false);
+  const [isLoading, setIsLoading] = useState(!cachedStatus);
 
-  const handleCustomerInfo = (customerInfo: CustomerInfo) => {
+  const applyCustomerInfo = (customerInfo: CustomerInfo) => {
     const isProActive = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+    setIsProState(isProActive);
+    writeCachedSubscriptionStatus(isProActive);
+    setIsLoading(false);
+  };
 
-    setIsPro(isProActive);
-    setIsLoading(false); // Set loading to false after fetching customer info
+  const setIsPro = (nextIsPro: boolean) => {
+    setIsProState(nextIsPro);
+    writeCachedSubscriptionStatus(nextIsPro);
   };
 
   useEffect(() => {
-    Purchases.addCustomerInfoUpdateListener(handleCustomerInfo);
+    let isMounted = true;
+    const handleCustomerInfoUpdate = (customerInfo: CustomerInfo) => {
+      if (!isMounted) return;
+      applyCustomerInfo(customerInfo);
+    };
 
-    const fetchInitalStatus = async () => {
-      setIsLoading(true); // Set loading to true while fetching
+    Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
+
+    const fetchInitialStatus = async () => {
       try {
         const customerInfo = await Purchases.getCustomerInfo();
-        handleCustomerInfo(customerInfo);
+        if (!isMounted) return;
+        applyCustomerInfo(customerInfo);
       } catch (error) {
         console.error('Failed to fetch customer info:', error);
-        setIsPro(false); // Default to false on error
-        setIsLoading(false); // Set loading to false on error
+        if (isMounted) setIsLoading(false);
       }
     };
-    fetchInitalStatus();
+    void fetchInitialStatus();
 
     return () => {
-      Purchases.removeCustomerInfoUpdateListener(handleCustomerInfo);
+      isMounted = false;
+      Purchases.removeCustomerInfoUpdateListener(handleCustomerInfoUpdate);
     };
   }, []);
 

@@ -3,9 +3,10 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import { PressableScale } from 'pressto';
 import React from 'react';
-import { usePostHog } from 'posthog-react-native';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -186,7 +187,7 @@ export default function SettingsIndex() {
             id: 'terms',
             label: t('settings.legal.terms', { defaultValue: 'Terms of Service' }),
             icon: 'document-text',
-            rightIcon: isRTL ? 'arrow-top-left' : 'arrow-top-right',
+            rightIcon: isRTL ? 'arrow-up-left-box' : 'arrow-up-right-box',
             rightIconType: 'Ionicons',
             onPress: () => openLink(termsUrl),
             iconColor: PlatformColor('systemGray'),
@@ -195,7 +196,7 @@ export default function SettingsIndex() {
             id: 'privacy',
             label: t('settings.legal.privacy', { defaultValue: 'Privacy Policy' }),
             icon: 'lock-closed',
-            rightIcon: isRTL ? 'arrow-top-left' : 'arrow-top-right',
+            rightIcon: isRTL ? 'arrow-up-left-box' : 'arrow-up-right-box',
             rightIconType: 'Ionicons',
             onPress: () => openLink(privacyUrl),
             iconColor: PlatformColor('systemGray'),
@@ -240,7 +241,7 @@ export default function SettingsIndex() {
     <SectionList
       ListHeaderComponent={
         !isPro ? (
-          <PressableScale style={styles.proCard} onPress={() => {}}>
+          <PressableScale style={styles.proCard} onPress={() => router.push('/(paywalls)')}>
             <View style={StyleSheet.absoluteFill}>
               <AnimatedGradientRect width={width} height={height} />
             </View>

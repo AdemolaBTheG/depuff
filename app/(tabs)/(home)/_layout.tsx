@@ -1,13 +1,15 @@
 import { Theme } from '@/constants/Theme';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { PlatformColor } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { PlatformColor } from 'react-native';
 
 export default function HomeLayout() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { isPro } = useSubscription();
   return (
     <Stack>
       <Stack.Screen
@@ -31,15 +33,33 @@ export default function HomeLayout() {
               onPress: () => router.push('/(settings)' as never),
             },
           ],
-          unstable_headerRightItems: () => [
-            {
-              type: 'button',
-              label: t('scan.title', { defaultValue: 'Scan' }),
-              icon: { type: 'sfSymbol', name: 'camera' },
-              tintColor: Theme.colors.accent,
-              onPress: () => router.push('/(scan)' as never),
-            },
-          ],
+          unstable_headerRightItems: () => {
+            const items: any[] = [
+              {
+                type: 'button',
+                variant:'prominent',
+                label: t('scan.title', { defaultValue: 'Scan' }),
+                icon: { type: 'sfSymbol', name: 'camera' },
+                tintColor: Theme.colors.accent,
+                sharesBackground: false,
+                onPress: () => router.push('/(scan)' as never),
+              },
+            ];
+            
+            if (!isPro) {
+              items.unshift({
+                type: 'button',
+                variant:'prominent',
+                label: t('paywall.pro', { defaultValue: 'PRO' }),
+                icon: { type: 'sfSymbol', name: 'sparkles' },
+                tintColor: '#F59E0B',
+                sharesBackground: false,
+                onPress: () => router.push('/(paywalls)' as never),
+              });
+            }
+            
+            return items;
+          },
         }}
       />
     </Stack>

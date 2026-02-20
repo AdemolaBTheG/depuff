@@ -1,11 +1,23 @@
 import { Theme } from '@/constants/Theme';
+import { Button as AndroidButton } from '@expo/ui/jetpack-compose';
+import { Button, Host, Text as IOSText } from '@expo/ui/swift-ui';
+import {
+  buttonStyle,
+  controlSize,
+  font,
+  frame,
+  padding,
+  tint,
+} from '@expo/ui/swift-ui/modifiers';
 import { useIsFocused } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Stack, router } from 'expo-router';
 import { PressableScale } from 'pressto';
 import { usePostHog } from 'posthog-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, type Camera as VisionCamera } from 'react-native-vision-camera';
@@ -18,16 +30,19 @@ function normalizeFileUri(path: string): string {
 }
 
 export default function OnboardingDemoScanScreen() {
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const posthog = usePostHog();
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('front');
   const isFocused = useIsFocused();
+  const isIOS = process.env.EXPO_OS === 'ios';
   const cameraRef = useRef<VisionCamera | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
 
   const supportsFlashCapture = Boolean(device?.hasFlash);
   const supportsTorch = Boolean(device?.hasTorch);
@@ -47,13 +62,26 @@ export default function OnboardingDemoScanScreen() {
       posthog?.capture('Onboarding Demo Camera Permission Result', {
         granted,
       });
+      setIsPermissionDenied(!granted);
     } catch (error) {
       posthog?.capture('Onboarding Demo Camera Permission Result', {
         granted: false,
         error_message: error instanceof Error ? error.message : 'unknown_error',
       });
+      setIsPermissionDenied(true);
     }
   }, [posthog, requestPermission]);
+
+  const handleOpenSettings = useCallback(async () => {
+    posthog?.capture('Onboarding Demo Camera Settings Opened');
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      posthog?.capture('Onboarding Demo Camera Settings Failed', {
+        error_message: error instanceof Error ? error.message : 'unknown_error',
+      });
+    }
+  }, [posthog]);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || isCapturing) return;
@@ -91,43 +119,178 @@ export default function OnboardingDemoScanScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       {!hasPermission ? (
-        <View style={[styles.centered, { paddingTop: insets.top + 24 }]}>
-          <View style={styles.lightProgressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+        <View style={[styles.centered, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.permissionContent}>
+            <View style={styles.lightProgressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+
+            <View style={styles.permissionHero}>
+              <View style={styles.permissionIconWrap}>
+                <View style={styles.permissionIconLensOuter}>
+                  <View style={styles.permissionIconLensInner} />
+                </View>
+              </View>
+              <Text selectable style={styles.permissionTitle}>
+                {t('onboarding.demoScan.permissionTitle')}
+              </Text>
+              <Text selectable style={styles.permissionSubtitle}>
+                {t('onboarding.demoScan.permissionSubtitle')}
+              </Text>
+            </View>
+
+            <View style={styles.permissionCard}>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.permissionPoint.instant', {
+                    defaultValue: 'Capture takes just a few seconds.',
+                  })}
+                </Text>
+              </View>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.permissionPoint.private', {
+                    defaultValue: 'Your camera is only used to generate your preview.',
+                  })}
+                </Text>
+              </View>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.permissionPoint.skip', {
+                    defaultValue: 'You can skip now and enable it later.',
+                  })}
+                </Text>
+              </View>
+            </View>
           </View>
-          <Text selectable style={styles.title}>
-            {t('onboarding.demoScan.permissionTitle')}
-          </Text>
-          <Text selectable style={styles.subtitle}>
-            {t('onboarding.demoScan.permissionSubtitle')}
-          </Text>
-          <PressableScale style={styles.primaryCta} onPress={() => void handleRequestPermission()}>
-            <Text selectable style={styles.primaryCtaLabel}>
-              {t('common.enableCamera')}
-            </Text>
-          </PressableScale>
-          <Pressable onPress={() => handleSkip('permission')} style={styles.skipWrap}>
-            <Text selectable style={styles.skipTextDark}>
-              {t('common.skipForNow')}
-            </Text>
-          </Pressable>
+
+          <View style={styles.permissionFooter}>
+            {isIOS ? (
+              <Host matchContents useViewportSizeMeasurement style={{ alignSelf: 'center' }}>
+                <Button
+                  onPress={() => void handleRequestPermission()}
+                  modifiers={[
+                    buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
+                    tint(Theme.colors.accent),
+                    controlSize('regular'),
+                  ]}
+                >
+                  <IOSText
+                    modifiers={[
+                      font({ size: 17, weight: 'medium' }),
+                      padding({ horizontal: 12, vertical: 6 }),
+                      frame({ width: width * 0.84 }),
+                    ]}
+                  >
+                    {t('common.enableCamera')}
+                  </IOSText>
+                </Button>
+              </Host>
+            ) : (
+              <View style={{ width: width * 0.84, alignSelf: 'center' }}>
+                <AndroidButton onPress={() => void handleRequestPermission()} color={Theme.colors.accent}>
+                  {t('common.enableCamera')}
+                </AndroidButton>
+              </View>
+            )}
+
+            <Pressable onPress={() => handleSkip('permission')} style={styles.skipWrap}>
+              <Text selectable style={styles.skipTextDark}>
+                {t('common.skipForNow')}
+              </Text>
+            </Pressable>
+            {isPermissionDenied ? (
+              <Pressable onPress={() => void handleOpenSettings()} style={styles.openSettingsWrap}>
+                <Text selectable style={styles.openSettingsText}>
+                  {t('common.openSettings', { defaultValue: 'Open Settings' })}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ) : !device ? (
-        <View style={[styles.centered, { paddingTop: insets.top + 24 }]}>
-          <View style={styles.lightProgressTrack}>
-            <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+        <View style={[styles.centered, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.permissionContent}>
+            <View style={styles.lightProgressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+            </View>
+
+            <View style={styles.permissionHero}>
+              <View style={[styles.permissionIconWrap, styles.unavailableIconWrap]}>
+                <View style={styles.permissionIconLensOuter}>
+                  <View style={styles.permissionIconLensInner} />
+                </View>
+                <View style={styles.unavailableIconSlash} />
+              </View>
+              <Text selectable style={styles.permissionTitle}>
+                {t('onboarding.demoScan.unavailableTitle')}
+              </Text>
+              <Text selectable style={styles.permissionSubtitle}>
+                {t('onboarding.demoScan.unavailableSubtitle')}
+              </Text>
+            </View>
+
+            <View style={styles.permissionCard}>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.unavailablePoint.preview', {
+                    defaultValue: 'You can still continue to see your personalized preview flow.',
+                  })}
+                </Text>
+              </View>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.unavailablePoint.compatibility', {
+                    defaultValue: 'Face scan capture requires a supported front camera.',
+                  })}
+                </Text>
+              </View>
+              <View style={styles.permissionPoint}>
+                <View style={styles.permissionPointDot} />
+                <Text selectable style={styles.permissionPointText}>
+                  {t('onboarding.demoScan.unavailablePoint.later', {
+                    defaultValue: 'You can try scanning later on a compatible device.',
+                  })}
+                </Text>
+              </View>
+            </View>
           </View>
-          <Text selectable style={styles.title}>
-            {t('onboarding.demoScan.unavailableTitle')}
-          </Text>
-          <Text selectable style={styles.subtitle}>
-            {t('onboarding.demoScan.unavailableSubtitle')}
-          </Text>
-          <PressableScale style={styles.primaryCta} onPress={() => handleSkip('camera_unavailable')}>
-            <Text selectable style={styles.primaryCtaLabel}>
-              {t('onboarding.demoScan.continueToPreview')}
-            </Text>
-          </PressableScale>
+
+          <View style={styles.permissionFooter}>
+            {isIOS ? (
+              <Host matchContents useViewportSizeMeasurement style={{ alignSelf: 'center' }}>
+                <Button
+                  onPress={() => handleSkip('camera_unavailable')}
+                  modifiers={[
+                    buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
+                    tint(Theme.colors.accent),
+                    controlSize('regular'),
+                  ]}
+                >
+                  <IOSText
+                    modifiers={[
+                      font({ size: 17, weight: 'medium' }),
+                      padding({ horizontal: 12, vertical: 6 }),
+                      frame({ width: width * 0.84 }),
+                    ]}
+                  >
+                    {t('onboarding.demoScan.continueToPreview')}
+                  </IOSText>
+                </Button>
+              </Host>
+            ) : (
+              <View style={{ width: width * 0.84, alignSelf: 'center' }}>
+                <AndroidButton onPress={() => handleSkip('camera_unavailable')} color={Theme.colors.accent}>
+                  {t('onboarding.demoScan.continueToPreview')}
+                </AndroidButton>
+              </View>
+            )}
+          </View>
         </View>
       ) : (
         <>
@@ -286,19 +449,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.08)',
     overflow: 'hidden',
   },
-  primaryCta: {
-    marginTop: 28,
-    backgroundColor: Theme.colors.accent,
-    borderRadius: 999,
-    borderCurve: 'continuous',
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-  },
-  primaryCtaLabel: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
   progressFill: {
     height: '100%',
     backgroundColor: Theme.colors.accent,
@@ -324,6 +474,100 @@ const styles = StyleSheet.create({
   skipWrap: {
     marginTop: 16,
   },
+  permissionCard: {
+    marginTop: 24,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    boxShadow: '0 14px 34px rgba(15,23,42,0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  permissionContent: {
+    width: '100%',
+  },
+  permissionFooter: {
+    width: '100%',
+    marginTop: 'auto',
+  },
+  permissionHero: {
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  permissionIconLensInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: Theme.colors.accent,
+  },
+  permissionIconLensOuter: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: Theme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${Theme.colors.accent}1A`,
+  },
+  permissionIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${Theme.colors.accent}17`,
+    borderWidth: 1,
+    borderColor: `${Theme.colors.accent}30`,
+  },
+  permissionPoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  permissionPointDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: Theme.colors.accent,
+  },
+  permissionPointText: {
+    flex: 1,
+    color: 'rgba(0,0,0,0.72)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  permissionSubtitle: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: 'rgba(0,0,0,0.62)',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  permissionTitle: {
+    marginTop: 20,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#000000',
+  },
+  openSettingsText: {
+    color: Theme.colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  openSettingsWrap: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   subtitle: {
     marginTop: 10,
     textAlign: 'center',
@@ -344,5 +588,17 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     top: 0,
+  },
+  unavailableIconSlash: {
+    width: 34,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: Theme.colors.accent,
+    position: 'absolute',
+    transform: [{ rotate: '-36deg' }],
+  },
+  unavailableIconWrap: {
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderColor: 'rgba(244,63,94,0.24)',
   },
 });

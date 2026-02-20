@@ -1,7 +1,7 @@
 import { AIChecklist } from '@/components/ai-checklist';
-import { PAYWALL_ROUTE } from '@/constants/gating';
 import { CounterControls } from '@/components/daily-steps/counter-controls';
 import { DigitalCounter } from '@/components/daily-steps/digital-counter';
+import { PAYWALL_ROUTE } from '@/constants/gating';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { dailyLogs, faceScans } from '@/db/schema';
 import {
@@ -31,8 +31,8 @@ import { desc, eq, sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PlatformColor, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { PlatformColor, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -1003,17 +1003,23 @@ export default function HomeIndex() {
         </View>
         {recentFoods.length === 0 ? (
           <View style={styles.recentFoodCardEmpty}>
-            <Text selectable style={styles.recentFoodsEmpty}>
-              {t('home.noFoodsLogged', { defaultValue: 'No foods logged for this day.' })}
+            <View style={styles.recentFoodEmptyIconWrap}>
+              <Ionicons name="fast-food-outline" size={32} color="rgba(15, 23, 42, 0.45)" />
+            </View>
+            <Text selectable style={styles.recentFoodEmptyTitle}>
+              {t('home.noFoodsLoggedTitle', { defaultValue: 'No Meals Logged' })}
+            </Text>
+            <Text selectable style={styles.recentFoodEmptyDescription}>
+              {t('home.noFoodsLoggedDesc', { defaultValue: 'Log your meals to track your sodium and hydration more accurately.' })}
             </Text>
             {process.env.EXPO_OS === 'ios' ? (
-              <IOSHost matchContents useViewportSizeMeasurement>
+              <IOSHost style={{ width: '100%' }} matchContents useViewportSizeMeasurement>
                 <IOSButton
                   label={t('food.logFood', { defaultValue: 'Log Food' })}
-                  systemImage="fork.knife"
+                  systemImage="plus"
                   onPress={handleLogFood}
                   modifiers={[
-                    controlSize('regular'),
+                    controlSize('large'),
                     tint('rgba(34, 211, 238, 1)'),
                     buttonStyle('borderedProminent'),
                   ]}
@@ -1384,29 +1390,54 @@ const styles = StyleSheet.create({
   recentFoodCardEmpty: {
     borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(15, 23, 42, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
-  recentFoodsEmpty: {
+  recentFoodEmptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  recentFoodEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PlatformColor('label'),
+    letterSpacing: 0.35,
+    textAlign: 'center',
+  },
+  recentFoodEmptyDescription: {
     fontSize: 15,
     fontWeight: '500',
     color: PlatformColor('secondaryLabel'),
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 6,
   },
-
   recentFoodEmptyActionFallback: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
+    alignSelf: 'stretch',
+    borderRadius: 14,
     borderCurve: 'continuous',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(34, 211, 238, 0.15)',
+    paddingVertical: 14,
+    backgroundColor: 'rgba(34, 211, 238, 1)',
+    alignItems: 'center',
   },
   recentFoodEmptyActionFallbackLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(34, 211, 238, 1)',
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'white',
   },
   recentFoodsList: {
     borderRadius: 20,

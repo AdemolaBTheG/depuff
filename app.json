@@ -4,19 +4,25 @@
     "slug": "depuff",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-
     "scheme": "depuff",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/depuff.icon",
-
       "supportsTablet": false,
       "bundleIdentifier": "com.depuff.app",
       "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to the camera to allow you to take photos and videos and analyze them.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "$(PRODUCT_NAME) may not actually need this permission, but it may be required by one of our services."
+      },
+      "entitlements": {
+        "aps-environment": "production",
+        "com.apple.security.application-groups": [
+          "group.com.depuff.app.onesignal"
+        ]
       }
     },
     "android": {
@@ -27,14 +33,18 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.CAMERA"]
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -54,10 +64,16 @@
       "expo-sqlite",
       "expo-web-browser",
       "expo-localization",
-
       "react-native-vision-camera",
-
-      "expo-video"
+      "expo-video",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "depuff",
+          "organization": "ademola-kevin-bello"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
