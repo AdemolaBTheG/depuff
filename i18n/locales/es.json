@@ -1,0 +1,174 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "finish": "Finalizar",
+    "skip": "Omitir",
+    "skipForNow": "Omitir por ahora",
+    "enableCamera": "Habilitar camara"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "Cual es tu objetivo principal?",
+        "subtitle": "Ajustaremos tu plan en base a esto primero.",
+        "options": {
+          "reduceMorningPuffiness": "Reducir hinchazon matutina",
+          "reduceWaterRetention": "Reducir retencion de liquidos",
+          "buildDailyRoutine": "Crear una rutina diaria",
+          "trackSodiumTriggers": "Rastrear detonantes de sodio"
+        }
+      },
+      "frequency": {
+        "title": "Con que frecuencia amaneces hinchado?",
+        "subtitle": "Esto nos ayuda a calibrar tu linea base.",
+        "options": {
+          "rarely": "Rara vez",
+          "oneToTwo": "1-2 dias por semana",
+          "threeToFive": "3-5 dias por semana",
+          "daily": "Casi todos los dias"
+        }
+      },
+      "trigger": {
+        "title": "Que detonante encaja mejor?",
+        "subtitle": "Elige lo que mas probablemente causa tu hinchazon.",
+        "options": {
+          "saltyFood": "Comida salada",
+          "poorSleep": "Mal sueno",
+          "alcohol": "Alcohol",
+          "notSure": "Aun no estoy seguro"
+        }
+      },
+      "commitment": {
+        "title": "Que tan intenso debe ser tu plan diario?",
+        "subtitle": "Elige tu nivel de esfuerzo.",
+        "options": {
+          "light": "Ligero (2 min/dia)",
+          "standard": "Estandar (5 min/dia)",
+          "focused": "Enfocado (10 min/dia)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Define tu objetivo diario de hidratacion",
+        "subtitle": "Usamos este objetivo en Inicio y Progreso.",
+        "unit": "ml por dia"
+      },
+      "sodium": {
+        "title": "Define tu limite de sodio",
+        "subtitle": "Depuff rastrea que tan cerca estas de este limite.",
+        "unit": "mg por dia"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Prueba tu primer escaneo de vista previa",
+      "permissionSubtitle": "Necesitamos acceso a camara para generar tu vista previa depuff.",
+      "unavailableTitle": "Camara frontal no disponible",
+      "unavailableSubtitle": "Puedes continuar con una vista previa depuff.",
+      "continueToPreview": "Continuar a la vista previa",
+      "previewTitle": "Escaneo de vista previa",
+      "cameraSubtitle": "Centra tu rostro y toca capturar.",
+      "flashOn": "Flash encendido",
+      "flashOff": "Flash apagado",
+      "captureFailed": "No se pudo tomar la foto"
+    },
+    "demoPreview": {
+      "titleBuilding": "Construyendo tu vista previa depuff",
+      "titleReady": "Tu vista previa depuff",
+      "subtitleBuilding": "Analizando tu escaneo y preparando tu plan depuff personalizado.",
+      "subtitleReady": "Vista previa generada a partir de tu escaneo.",
+      "badge": "Vista previa depuff",
+      "imageUnavailable": "Imagen del escaneo no disponible",
+      "generating": "Generando tu vista previa",
+      "steps": {
+        "contours": "Detectando contornos faciales",
+        "zones": "Estimando zonas de retencion",
+        "profile": "Construyendo tu perfil depuff",
+        "plan": "Finalizando tu plan diario"
+      },
+      "hotspotsTitle": "Zonas probables de hinchazon",
+      "actionTitle": "Areas para mejorar hoy",
+      "trendTitle": "Tendencia depuff potencial de 7 dias",
+      "hotspots": {
+        "underEye": "Hinchazon bajo los ojos",
+        "midFace": "Volumen en la zona media",
+        "jawline": "Retencion en la mandibula"
+      },
+      "actions": {
+        "hydration": "Cumple tu objetivo de hidratacion antes de las 4 PM",
+        "sodium": "Manten la cena con menos sodio que el almuerzo",
+        "walk": "Haz una caminata de 10 minutos despues de cenar"
+      },
+      "unlockCta": "Desbloquear analisis completo",
+      "buildingCta": "Construyendo tu vista previa..."
+    },
+    "notifications": {
+      "title": "Manten el rumbo cada dia",
+      "subtitle": "Activa las notificaciones para que Depuff te recuerde en el momento correcto.",
+      "item_title": "Depuff",
+      "time_5m": "5m",
+      "time_2m": "2m",
+      "time_now": "ahora",
+      "item_0": "Recordatorio de hidratacion: adelanta tu agua antes de las 4 PM.",
+      "item_1": "Aviso rapido: manten la cena con menos sodio que el almuerzo.",
+      "item_2": "Chequeo de accion: completa tu rutina depuff antes de dormir."
+    },
+    "rating": {
+      "title": "Te esta gustando Depuff?",
+      "subtitle": "Una calificacion rapida nos ayuda a crecer y mejorar tus resultados depuff.",
+      "cta_rate": "Calificar ahora",
+      "cta_skip": "Omitir por ahora"
+    },
+    "intro": {
+      "ctaNext": "Siguiente",
+      "ctaStart": "Comenzar",
+      "slides": {
+        "scan": {
+          "title": "Escanea en segundos",
+          "description": "Una revision facial rapida cada manana te da una linea base diaria clara.",
+          "points": {
+            "0": "Captura rapida con camara",
+            "1": "Puntaje de hinchazon con contexto de tendencia"
+          }
+        },
+        "food": {
+          "title": "Registra comidas rapido",
+          "description": "Toma una foto de la comida y estima sodio para saber que provoca la hinchazon.",
+          "points": {
+            "0": "Estimacion de sodio por comida",
+            "1": "Etiquetas de riesgo de hinchazon accionables"
+          }
+        },
+        "actions": {
+          "title": "Recibe acciones diarias",
+          "description": "Depuff convierte tus datos en una lista enfocada para hoy.",
+          "points": {
+            "0": "Prioridades de hidratacion y sodio",
+            "1": "Tareas simples con feedback de completado"
+          }
+        },
+        "progress": {
+          "title": "Mide lo que funciona",
+          "description": "Sigue tus tendencias y detecta habitos que mas reducen la hinchazon.",
+          "points": {
+            "0": "Seguimiento gratis de 7 dias",
+            "1": "Insights mas profundos con Pro"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Nutrientes diarios\nque importan",
+      "subtitle": "Pequenos cambios se acumulan. Construye habitos que reduzcan la hinchazon y mejoren tu linea base.",
+      "items": {
+        "regulation": "Regulacion del sistema nervioso",
+        "scripts": "Mejor dialogo interno",
+        "connection": "Conexion sobre aislamiento",
+        "boundaries": "Limites claros",
+        "mindset": "Mentalidad a largo plazo",
+        "patience": "Paciencia y consistencia",
+        "sleep": "Recuperacion con prioridad en sueno"
+      }
+    }
+  }
+}

@@ -25,9 +25,10 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 10;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const SELECTED_ANSWER_BG = `${Theme.colors.accent}26`;
 
@@ -52,6 +53,7 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isIOS = process.env.EXPO_OS === 'ios';
+  const { t } = useTranslation();
   const posthog = usePostHog();
   const [selected, setSelected] = useState<string | null>(null);
   const { setQuizAnswer, setOnboardingCompleted } = useOnboardingStore();
@@ -72,6 +74,10 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
     setQuizAnswer(config.questionId, selected);
     if (config.shouldCompleteOnContinue) {
       setOnboardingCompleted(true);
+      posthog?.capture('Onboarding Completed', {
+        final_question: config.questionId,
+        final_answer: selected,
+      });
     }
     posthog?.capture('Onboarding Quiz Continued', {
       question: config.questionId,
@@ -87,10 +93,10 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
       </View>
 
       <Text selectable style={styles.title}>
-        {config.title}
+        {t(config.title)}
       </Text>
       <Text selectable style={styles.subtitle}>
-        {config.subtitle}
+        {t(config.subtitle)}
       </Text>
 
       <View style={styles.optionsContainer}>
@@ -100,6 +106,7 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
             option={option}
             isSelected={selected === option.id}
             onPress={handleSelect}
+            t={t}
           />
         ))}
       </View>
@@ -127,7 +134,7 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
                 padding({ horizontal: 12, vertical: 6 }),
                 frame({ width: width * 0.8 }),
               ]}>
-              {config.ctaLabel}
+              {t(config.ctaLabel)}
             </IOSText>
           </Button>
         </Host>
@@ -143,7 +150,7 @@ export default function QuizScreenView({ config }: { config: QuizScreenConfig })
             onPress={() => handleContinue()}
             disabled={selected === null}
             color={Theme.colors.accent}>
-            {config.ctaLabel}
+            {t(config.ctaLabel)}
           </AndroidButton>
         </View>
       )}
@@ -155,10 +162,12 @@ function AnswerCard({
   option,
   isSelected,
   onPress,
+  t,
 }: {
   option: QuizOption;
   isSelected: boolean;
   onPress: (id: string) => void;
+  t: (key: string) => string;
 }) {
   const scale = useSharedValue(1);
   const focused = useSharedValue(0);
@@ -204,7 +213,7 @@ function AnswerCard({
       <Text
         selectable
         style={[styles.answerLabel, { color: isSelected ? Theme.colors.accent : '#000' }]}>
-        {option.label}
+        {t(option.label)}
       </Text>
       {isSelected && (
         <SymbolView

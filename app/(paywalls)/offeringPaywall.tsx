@@ -1,3 +1,4 @@
+import { Theme } from "@/constants/Theme";
 import { useSubscription } from "@/context/SubscriptionContext";
 import { Redirect, router } from "expo-router";
 import { usePostHog } from 'posthog-react-native';
@@ -34,7 +35,7 @@ export default function Paywall() {
     }, []);
 
     if (isPro) {
-        return <Redirect href="/(tabs)/(discover)" />;
+        return <Redirect href="/(tabs)/(home)" />;
     }
 
     return (
@@ -46,16 +47,16 @@ export default function Paywall() {
                     }}
                     onDismiss={() => {
                         posthog?.capture('Paywall Dismissed');
-                        router.replace("/(tabs)/(discover)");
+                        router.replace("/(tabs)/(home)");
                     }}
                     onPurchaseCompleted={async () => {
-                        router.replace("/(tabs)/(discover)");
+                        router.replace("/(tabs)/(home)");
                     }}
                 />
             ) : (
                 <ActivityIndicator
                     size="large"
-                    color="#14b8a6"
+                    color={Theme.colors.accent}
                     style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
                 />
             )}

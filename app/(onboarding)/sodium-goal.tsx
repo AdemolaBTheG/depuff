@@ -1,7 +1,7 @@
 import GoalWheelScreenView from '@/components/onboarding/goal-wheel-screen';
 import { useSettingsStore } from '@/stores/settingsStore';
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 10;
 
 export default function OnboardingSodiumGoalScreen() {
   const { sodiumGoalMg, setSodiumGoalMg } = useSettingsStore();
@@ -10,15 +10,15 @@ export default function OnboardingSodiumGoalScreen() {
     <GoalWheelScreenView
       config={{
         questionId: 'sodium_goal_mg',
-        title: 'Set your sodium limit',
-        subtitle: 'Depuff tracks how close each day is to this cap.',
-        unit: 'mg per day',
+        title: 'onboarding.goals.sodium.title',
+        subtitle: 'onboarding.goals.sodium.subtitle',
+        unit: 'onboarding.goals.sodium.unit',
         minimum: 1200,
         maximum: 4000,
         step: 50,
         stepIndex: 4,
         totalSteps: TOTAL_STEPS,
-        ctaLabel: 'Continue',
+        ctaLabel: 'common.continue',
         nextRoute: '/(onboarding)/commitment',
         defaultValue: sodiumGoalMg,
         onSave: setSodiumGoalMg,

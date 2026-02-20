@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
 import { useMemo, useRef } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type GoalWheelScreenConfig = {
@@ -46,6 +47,7 @@ export default function GoalWheelScreenView({ config }: { config: GoalWheelScree
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isIOS = process.env.EXPO_OS === 'ios';
+  const { t } = useTranslation();
   const posthog = usePostHog();
   const { setQuizAnswer, setOnboardingCompleted } = useOnboardingStore();
 
@@ -82,10 +84,10 @@ export default function GoalWheelScreenView({ config }: { config: GoalWheelScree
       </View>
 
       <Text selectable style={styles.title}>
-        {config.title}
+        {t(config.title)}
       </Text>
       <Text selectable style={styles.subtitle}>
-        {config.subtitle}
+        {t(config.subtitle)}
       </Text>
 
       <View style={styles.valueWrap}>
@@ -104,9 +106,10 @@ export default function GoalWheelScreenView({ config }: { config: GoalWheelScree
           textDigitWidth={36}
           textDigitHeight={56}
           fontSize={48}
+          boundaryGradientColor="#F2F2F7"
         />
         <Text selectable style={styles.unitLabel}>
-          {config.unit}
+          {t(config.unit)}
         </Text>
       </View>
 
@@ -132,7 +135,7 @@ export default function GoalWheelScreenView({ config }: { config: GoalWheelScree
                 padding({ horizontal: 12, vertical: 6 }),
                 frame({ width: width * 0.8 }),
               ]}>
-              {config.ctaLabel}
+              {t(config.ctaLabel)}
             </IOSText>
           </Button>
         </Host>
@@ -145,7 +148,7 @@ export default function GoalWheelScreenView({ config }: { config: GoalWheelScree
             alignSelf: 'center',
           }}>
           <AndroidButton onPress={handleContinue} color={Theme.colors.accent}>
-            {config.ctaLabel}
+            {t(config.ctaLabel)}
           </AndroidButton>
         </View>
       )}

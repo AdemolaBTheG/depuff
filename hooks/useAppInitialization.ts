@@ -1,4 +1,5 @@
 import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
+import { posthog } from '@/src/config/posthog';
 import { useDbStore } from '@/stores/dbStore';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -16,9 +17,17 @@ export function useAppInitialization() {
     let userObserver: any | null = null;
     let isMounted = true;
 
+    const getPostHogDistinctId = async (): Promise<string | null> => {
+      await posthog.ready();
+      const distinctId = posthog.getDistinctId()?.trim();
+      return distinctId ? distinctId : null;
+    };
+
     const configurePurchases = async () => {
       if (Platform.OS === 'ios' && rc_apple_api_key) {
-        Purchases.configure({ apiKey: 'test_wQPfxhLUBqJNosuiPjgOdJYhNrG' });
+        Purchases.configure({
+          apiKey: rc_apple_api_key,
+        });
         const configured = await Purchases.isConfigured();
         if (configured) {
           await Purchases.enableAdServicesAttributionTokenCollection();
@@ -32,26 +41,48 @@ export function useAppInitialization() {
       }
     };
 
+    const syncSubscriberAttributesToRevenueCat = async (onesignalId?: string | null) => {
+      try {
+        if (!(await Purchases.isConfigured())) return;
+
+        const posthogDistinctId = await getPostHogDistinctId();
+        const attributes: Record<string, string | null> = {};
+
+        if (onesignalId) {
+          attributes.$onesignalUserId = onesignalId;
+        }
+
+        if (posthogDistinctId) {
+          // Required by RevenueCat -> PostHog integration to map subscription events to the correct PostHog user.
+          attributes.$posthogUserId = posthogDistinctId;
+        }
+
+        if (Object.keys(attributes).length === 0) return;
+
+        await Purchases.setAttributes(attributes);
+        await Purchases.syncAttributesAndOfferingsIfNeeded?.();
+      } catch (e) {
+        console.warn('RevenueCat subscriber attribute sync failed', e);
+      }
+    };
+
     const syncIdsToRevenueCat = async () => {
       try {
-        const onesignalId = await OneSignal.User.getOnesignalId();
-        if (onesignalId) {
-          await Purchases.setAttributes({ $onesignalUserId: onesignalId });
-          await Purchases.syncAttributesAndOfferingsIfNeeded?.();
-        }
+        const onesignalId = onesignal_app_id
+          ? await OneSignal.User.getOnesignalId()
+          : null;
+        await syncSubscriberAttributesToRevenueCat(onesignalId);
       } catch (e) {
         console.warn('Initial OneSignal -> RevenueCat sync failed', e);
+        await syncSubscriberAttributesToRevenueCat();
       }
     };
 
     const attachObserver = () => {
+      if (!onesignal_app_id) return;
       userObserver = OneSignal.User.addEventListener('change', async (user) => {
         try {
-          const onesignalId = user.current?.onesignalId;
-          if (onesignalId) {
-            await Purchases.setAttributes({ $onesignalUserId: onesignalId });
-            await Purchases.syncAttributesAndOfferingsIfNeeded?.();
-          }
+          await syncSubscriberAttributesToRevenueCat(user.current?.onesignalId ?? null);
         } catch (e) {
           console.warn('OneSignal -> RevenueCat sync failed', e);
         }

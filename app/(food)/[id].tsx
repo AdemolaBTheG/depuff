@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useMemo } from 'react';
 import { PlatformColor, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 type FoodLogDetail = {
   id: number;
@@ -18,20 +18,20 @@ type FoodLogDetail = {
   createdAt: string | null;
 };
 
-function formatRiskLabel(value: string | null): string {
-  if (!value) return 'Unknown';
+function formatRiskLabel(value: string | null, unknownLabel: string): string {
+  if (!value) return unknownLabel;
   return value
     .replace(/[_-]/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatLoggedAt(value: string | null): string {
-  if (!value) return 'Unknown time';
+function formatLoggedAt(value: string | null, locale: string, unknownTimeLabel: string): string {
+  if (!value) return unknownTimeLabel;
   const normalized = value.includes('T') ? value : value.replace(' ', 'T');
   const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return 'Unknown time';
-  return new Intl.DateTimeFormat('en-US', {
+  if (Number.isNaN(parsed.getTime())) return unknownTimeLabel;
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -41,8 +41,8 @@ function formatLoggedAt(value: string | null): string {
 
 export default function FoodLogDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
-  const insets = useSafeAreaInsets();
   const db = useDbStore((state) => state.db);
+  const { t, i18n } = useTranslation();
 
   const foodId = useMemo(() => {
     const raw = Array.isArray(id) ? id[0] : id;
@@ -52,7 +52,7 @@ export default function FoodLogDetailScreen() {
 
   const foodLogQuery = useQuery({
     enabled: Boolean(db) && foodId !== null,
-    queryKey: ['food-log', foodId],
+    queryKey: ['food-log', foodId, i18n.language],
     queryFn: async (): Promise<FoodLogDetail | null> => {
       if (!db || foodId === null) return null;
       const [row] = await db
@@ -72,7 +72,7 @@ export default function FoodLogDetailScreen() {
       if (!row) return null;
       return {
         id: row.id,
-        foodName: row.foodName ?? 'Unnamed food',
+        foodName: row.foodName ?? t('food.unnamedFood', { defaultValue: 'Unnamed food' }),
         sodiumEstimateMg: row.sodiumEstimateMg ?? 0,
         bloatRiskLevel: row.bloatRiskLevel ?? null,
         aiReasoning: row.aiReasoning ?? null,
@@ -92,7 +92,7 @@ export default function FoodLogDetailScreen() {
     >
       <Stack.Screen 
         options={{ 
-          title: foodLog?.foodName ?? 'Entry Details', 
+          title: foodLog?.foodName ?? t('food.entryDetails', { defaultValue: 'Entry Details' }), 
           headerTransparent: true,
           headerShadowVisible: false,
         }} 
@@ -101,25 +101,29 @@ export default function FoodLogDetailScreen() {
       {foodId === null ? (
         <View style={styles.emptyStateCard}>
           <Text selectable style={styles.emptyStateTitle}>
-            Invalid Record
+            {t('food.invalidRecord', { defaultValue: 'Invalid Record' })}
           </Text>
           <Text selectable style={styles.emptyStateSecondary}>
-            This dietary entry could not be retrieved.
+            {t('food.invalidRecordMessage', {
+              defaultValue: 'This dietary entry could not be retrieved.',
+            })}
           </Text>
         </View>
       ) : foodLogQuery.isLoading ? (
         <View style={styles.emptyStateCard}>
           <Text selectable style={styles.emptyStateSecondary}>
-            Loading entry details...
+            {t('common.loading', { defaultValue: 'Loading...' })}
           </Text>
         </View>
       ) : !foodLog ? (
         <View style={styles.emptyStateCard}>
           <Text selectable style={styles.emptyStateTitle}>
-            Record Unavailable
+            {t('food.recordUnavailable', { defaultValue: 'Record Unavailable' })}
           </Text>
           <Text selectable style={styles.emptyStateSecondary}>
-            This entry may have been deleted or moved.
+            {t('food.recordUnavailableMessage', {
+              defaultValue: 'This entry may have been deleted or moved.',
+            })}
           </Text>
         </View>
       ) : (
@@ -139,10 +143,14 @@ export default function FoodLogDetailScreen() {
           
             <View style={styles.detailRow}>
               <Text selectable style={styles.label}>
-                LOGGED
+                {t('food.loggedAt', { defaultValue: 'Logged' }).toUpperCase()}
               </Text>
               <Text selectable style={styles.secondaryValue}>
-                {formatLoggedAt(foodLog.createdAt)}
+                {formatLoggedAt(
+                  foodLog.createdAt,
+                  i18n.language,
+                  t('common.unknownTime', { defaultValue: 'Unknown time' })
+                )}
               </Text>
             </View>
           </View>
@@ -150,7 +158,7 @@ export default function FoodLogDetailScreen() {
           <View style={styles.metaGrid}>
             <View style={styles.metricCard}>
               <Text selectable style={styles.label}>
-                SODIUM ESTIMATE
+                {t('food.sodiumEstimate', { defaultValue: 'Sodium Estimate' }).toUpperCase()}
               </Text>
               <Text selectable style={styles.metricValue}>
                 {foodLog.sodiumEstimateMg.toLocaleString()} <Text style={styles.metricUnit}>mg</Text>
@@ -158,10 +166,13 @@ export default function FoodLogDetailScreen() {
             </View>
             <View style={styles.metricCard}>
               <Text selectable style={styles.label}>
-                BLOAT RISK
+                {t('food.bloatRisk', { defaultValue: 'Bloat Risk' }).toUpperCase()}
               </Text>
               <Text selectable style={styles.metricValue}>
-                {formatRiskLabel(foodLog.bloatRiskLevel)}
+                {formatRiskLabel(
+                  foodLog.bloatRiskLevel,
+                  t('common.unknown', { defaultValue: 'Unknown' })
+                )}
               </Text>
             </View>
           </View>
@@ -169,7 +180,7 @@ export default function FoodLogDetailScreen() {
           {foodLog.aiReasoning ? (
             <View style={styles.insightCard}>
               <Text selectable style={styles.label}>
-                ANALYSIS
+                {t('scan.analysis', { defaultValue: 'Analysis' }).toUpperCase()}
               </Text>
               <Text selectable style={styles.insightText}>
                 {foodLog.aiReasoning}

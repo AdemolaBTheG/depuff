@@ -31,6 +31,7 @@ type WheelPickerProps = {
   fontSize?: number;
   textColor?: string;
   gradientAccentColor?: string;
+  boundaryGradientColor?: string;
 };
 
 const DEFAULT_STEP = 100;
@@ -64,6 +65,7 @@ export const WheelPicker = ({
   fontSize = 46,
   textColor = '#000000',
   gradientAccentColor = '#FFFFFF',
+  boundaryGradientColor,
 }: WheelPickerProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const safeStep = Math.max(1, step);
@@ -134,6 +136,7 @@ export const WheelPicker = ({
         minLineHeight={10}
         lineColor={lineColor}
         bigLineColor={bigLineColor}
+        boundaryGradientColor={boundaryGradientColor}
         indicatorColor={indicatorColorSv}
         initialProgress={initialProgress}
         onProgressChange={(sliderProgress) => {

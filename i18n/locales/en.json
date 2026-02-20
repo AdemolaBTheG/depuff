@@ -1,0 +1,174 @@
+{
+  "common": {
+    "continue": "Continue",
+    "finish": "Finish",
+    "skip": "Skip",
+    "skipForNow": "Skip for now",
+    "enableCamera": "Enable Camera"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "What is your main goal?",
+        "subtitle": "We will tune your plan around this first.",
+        "options": {
+          "reduceMorningPuffiness": "Reduce morning puffiness",
+          "reduceWaterRetention": "Reduce water retention",
+          "buildDailyRoutine": "Build a daily routine",
+          "trackSodiumTriggers": "Track sodium triggers"
+        }
+      },
+      "frequency": {
+        "title": "How often do you wake up puffy?",
+        "subtitle": "This helps us calibrate your baseline.",
+        "options": {
+          "rarely": "Rarely",
+          "oneToTwo": "1-2 days per week",
+          "threeToFive": "3-5 days per week",
+          "daily": "Almost daily"
+        }
+      },
+      "trigger": {
+        "title": "Which trigger fits best?",
+        "subtitle": "Pick what most likely causes your bloat.",
+        "options": {
+          "saltyFood": "Salty food",
+          "poorSleep": "Poor sleep",
+          "alcohol": "Alcohol",
+          "notSure": "I'm not sure yet"
+        }
+      },
+      "commitment": {
+        "title": "How intense should your daily plan be?",
+        "subtitle": "Choose your effort level.",
+        "options": {
+          "light": "Light (2 min/day)",
+          "standard": "Standard (5 min/day)",
+          "focused": "Focused (10 min/day)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Set your daily hydration goal",
+        "subtitle": "We use this target in Home and Progress.",
+        "unit": "ml per day"
+      },
+      "sodium": {
+        "title": "Set your sodium limit",
+        "subtitle": "Depuff tracks how close each day is to this cap.",
+        "unit": "mg per day"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Try your first preview scan",
+      "permissionSubtitle": "We need camera access to generate your depuff preview.",
+      "unavailableTitle": "Front camera unavailable",
+      "unavailableSubtitle": "You can continue with a depuff preview instead.",
+      "continueToPreview": "Continue to Preview",
+      "previewTitle": "Preview Scan",
+      "cameraSubtitle": "Center your face and tap capture.",
+      "flashOn": "Flash On",
+      "flashOff": "Flash Off",
+      "captureFailed": "Failed to take photo"
+    },
+    "demoPreview": {
+      "titleBuilding": "Building your depuff preview",
+      "titleReady": "Your Depuff Preview",
+      "subtitleBuilding": "Analyzing your scan and preparing your personalized depuff plan.",
+      "subtitleReady": "Preview generated from your scan.",
+      "badge": "Depuff Preview",
+      "imageUnavailable": "Scan image unavailable",
+      "generating": "Generating your preview",
+      "steps": {
+        "contours": "Detecting facial contours",
+        "zones": "Estimating puff retention zones",
+        "profile": "Building depuff score profile",
+        "plan": "Finalizing your daily action plan"
+      },
+      "hotspotsTitle": "Likely puffiness hotspots",
+      "actionTitle": "Areas to improve today",
+      "trendTitle": "Potential 7-day depuff trend",
+      "hotspots": {
+        "underEye": "Under-eye puff",
+        "midFace": "Mid-face fullness",
+        "jawline": "Jawline water retention"
+      },
+      "actions": {
+        "hydration": "Hit your hydration target before 4 PM",
+        "sodium": "Keep dinner sodium lower than lunch",
+        "walk": "Take a 10-minute walk after your evening meal"
+      },
+      "unlockCta": "Unlock full analysis",
+      "buildingCta": "Building your preview..."
+    },
+    "notifications": {
+      "title": "Stay on Track Daily",
+      "subtitle": "Enable notifications so Depuff can remind you at the right times.",
+      "item_title": "Depuff",
+      "time_5m": "5m",
+      "time_2m": "2m",
+      "time_now": "now",
+      "item_0": "Hydration reminder: front-load your water before 4 PM.",
+      "item_1": "Quick nudge: keep dinner sodium lower than lunch.",
+      "item_2": "Action check: finish your depuff routine before bed."
+    },
+    "rating": {
+      "title": "Enjoying Depuff so far?",
+      "subtitle": "A quick rating helps us grow and keep improving your depuff results.",
+      "cta_rate": "Rate Now",
+      "cta_skip": "Skip for now"
+    },
+    "intro": {
+      "ctaNext": "Next",
+      "ctaStart": "Start Setup",
+      "slides": {
+        "scan": {
+          "title": "Scan in seconds",
+          "description": "A quick face check every morning gives you a clear daily baseline.",
+          "points": {
+            "0": "Fast camera capture",
+            "1": "AI bloat score with trend context"
+          }
+        },
+        "food": {
+          "title": "Log meals fast",
+          "description": "Snap food and estimate sodium so you know what actually drives puffiness.",
+          "points": {
+            "0": "AI sodium estimate per meal",
+            "1": "Bloat risk labels you can act on"
+          }
+        },
+        "actions": {
+          "title": "Get daily actions",
+          "description": "Depuff turns your scan + food data into a focused checklist for today.",
+          "points": {
+            "0": "Hydration and sodium priorities",
+            "1": "Simple tasks with completion feedback"
+          }
+        },
+        "progress": {
+          "title": "Track what works",
+          "description": "Follow your trends over time and see which habits reduce puffiness most.",
+          "points": {
+            "0": "7-day free progress tracking",
+            "1": "Deeper insights with Pro analytics"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Small daily\nnutrients",
+      "subtitle": "Tiny shifts compound. Build the habits that reduce puffiness and improve your baseline.",
+      "items": {
+        "regulation": "Nervous system regulation",
+        "scripts": "Better self-talk scripts",
+        "connection": "Connection over isolation",
+        "boundaries": "Clear boundaries",
+        "mindset": "Long-term mindset",
+        "patience": "Patience and consistency",
+        "sleep": "Sleep-first recovery"
+      }
+    }
+  }
+}

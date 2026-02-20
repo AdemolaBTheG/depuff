@@ -13,8 +13,10 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePostHog } from 'posthog-react-native';
 
 type BloatRiskLevel = 'low' | 'moderate' | 'high' | 'extreme';
 
@@ -94,7 +96,9 @@ function BloatRiskProgressBar({ risk }: BloatRiskProgressBarProps) {
 
 export default function FoodResultScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const queryClient = useQueryClient();
   const pendingAnalysis = useFoodAnalysisStore((state) => state.pendingAnalysis);
   const clearPendingAnalysis = useFoodAnalysisStore((state) => state.clearPendingAnalysis);
@@ -144,17 +148,28 @@ export default function FoodResultScreen() {
         queryClient.invalidateQueries({ queryKey: ['day-status', logDate] }),
         queryClient.invalidateQueries({ queryKey: ['day-foods', logDate] }),
       ]);
+      posthog?.capture('Food Log Confirmed', {
+        food_name: pendingAnalysis.result.food_name,
+        sodium_mg: pendingAnalysis.result.sodium_mg,
+        bloat_risk: pendingAnalysis.result.bloat_risk,
+      });
       clearPendingAnalysis();
       hapticSuccess();
       router.back();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save food log.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : t('food.errors.saveFailed', { defaultValue: 'Failed to save food log.' });
+      posthog?.capture('Food Log Save Failed', {
+        error_message: message,
+      });
       setSaveError(message);
       hapticError();
     } finally {
       setIsSaving(false);
     }
-  }, [clearPendingAnalysis, isSaving, pendingAnalysis, queryClient, router]);
+  }, [clearPendingAnalysis, isSaving, pendingAnalysis, posthog, queryClient, router, t]);
 
   const handleCancel = useCallback(() => {
     hapticSelection();
@@ -178,10 +193,12 @@ export default function FoodResultScreen() {
       {!pendingAnalysis ? (
         <View style={styles.emptyState}>
           <Text selectable style={styles.emptyTitle}>
-            No Pending Scan
+            {t('food.noPendingScan', { defaultValue: 'No Pending Scan' })}
           </Text>
           <Text selectable style={styles.emptySecondary}>
-            Capture and analyze a food image first.
+            {t('food.captureBeforeResult', {
+              defaultValue: 'Capture and analyze a food image first.',
+            })}
           </Text>
         </View>
       ) : (
@@ -202,14 +219,18 @@ export default function FoodResultScreen() {
                 mg
               </Text>
             </View>
-            <Text selectable style={styles.heroLabel}>ESTIMATED SODIUM</Text>
+            <Text selectable style={styles.heroLabel}>
+              {t('food.sodiumEstimate', { defaultValue: 'Estimated Sodium' }).toUpperCase()}
+            </Text>
           </View>
 
           {/* 3. Insight Cards */}
           <View style={styles.insightsContainer}>
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text selectable style={styles.label}>BLOAT RISK</Text>
+                <Text selectable style={styles.label}>
+                  {t('food.bloatRisk', { defaultValue: 'Bloat Risk' }).toUpperCase()}
+                </Text>
                 <View style={[styles.badge, { backgroundColor: riskColor.replace(', 1)', ', 0.14)') }]}>
                   <Text selectable style={[styles.badgeText, { color: riskColor }]}>
                     {pendingAnalysis.result.bloat_risk.toUpperCase()}
@@ -220,7 +241,9 @@ export default function FoodResultScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text selectable style={styles.label}>COUNTER MEASURE</Text>
+              <Text selectable style={styles.label}>
+                {t('food.counterMeasure', { defaultValue: 'Counter Measure' }).toUpperCase()}
+              </Text>
               <Text selectable style={styles.secondary}>
                 {pendingAnalysis.result.counter_measure}
               </Text>
@@ -239,7 +262,7 @@ export default function FoodResultScreen() {
               <IOSHost style={styles.iosActionsHost} matchContents useViewportSizeMeasurement>
                 <IOSHStack spacing={12}>
                   <IOSButton
-                    label="New Scan"
+                    label={t('scan.newScan', { defaultValue: 'New Scan' })}
                     systemImage="camera.viewfinder"
                     role="cancel"
                     onPress={handleCancel}
@@ -252,7 +275,11 @@ export default function FoodResultScreen() {
                   />
                   <IOSSpacer />
                   <IOSButton
-                    label={isSaving ? 'Saving...' : 'Done'}
+                    label={
+                      isSaving
+                        ? t('common.saving', { defaultValue: 'Saving...' })
+                        : t('common.done', { defaultValue: 'Done' })
+                    }
                     systemImage="checkmark"
                     onPress={() => void handleConfirm()}
                     modifiers={[
@@ -268,12 +295,14 @@ export default function FoodResultScreen() {
               <View style={styles.actionsRow}>
                 <AndroidHost style={styles.nativeActionItem}>
                   <AndroidButton onPress={handleCancel} variant="borderless" disabled={isSaving}>
-                    New Scan
+                    {t('scan.newScan', { defaultValue: 'New Scan' })}
                   </AndroidButton>
                 </AndroidHost>
                 <AndroidHost style={styles.nativeActionItem}>
                   <AndroidButton onPress={() => void handleConfirm()} disabled={!canConfirm}>
-                    {isSaving ? 'Saving...' : 'Done'}
+                    {isSaving
+                      ? t('common.saving', { defaultValue: 'Saving...' })
+                      : t('common.done', { defaultValue: 'Done' })}
                   </AndroidButton>
                 </AndroidHost>
               </View>
@@ -281,7 +310,7 @@ export default function FoodResultScreen() {
               <View style={styles.actionsRow}>
                 <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={handleCancel}>
                   <Text selectable style={styles.secondaryButtonLabel}>
-                    New Scan
+                    {t('scan.newScan', { defaultValue: 'New Scan' })}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -290,7 +319,9 @@ export default function FoodResultScreen() {
                   disabled={!canConfirm}
                 >
                   <Text selectable style={styles.primaryButtonLabel}>
-                    {isSaving ? 'Saving...' : 'Done'}
+                    {isSaving
+                      ? t('common.saving', { defaultValue: 'Saving...' })
+                      : t('common.done', { defaultValue: 'Done' })}
                   </Text>
                 </Pressable>
               </View>

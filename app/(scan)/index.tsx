@@ -5,7 +5,7 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { faceScans } from '@/db/schema';
 import { useAnalyzeFaceMutation } from '@/hooks/useBridgeApi';
 import { toDailyDate } from '@/hooks/useDayStatus';
-import { BridgeApiError } from '@/services/bridge-api';
+import { type BridgeLocale } from '@/services/bridge-api';
 import { useDbStore } from '@/stores/dbStore';
 import {
   hapticError,
@@ -29,6 +29,7 @@ import { Stack, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import {
   cancelAnimation,
   Easing,
@@ -51,6 +52,7 @@ import {
   type Face,
   type FrameFaceDetectionOptions,
 } from 'react-native-vision-camera-face-detector';
+import { usePostHog } from 'posthog-react-native';
 
 const REQUIRED_STABLE_FRAMES = 8;
 const STABLE_FRAME_DECAY = 2;
@@ -98,19 +100,14 @@ function normalizeFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
 
-function parseError(error: unknown): string {
-  if (error instanceof BridgeApiError) {
-    const serverError =
-      typeof error.body === 'object' &&
-      error.body !== null &&
-      'error' in error.body &&
-      typeof (error.body as { error?: unknown }).error === 'string'
-        ? (error.body as { error: string }).error
-        : null;
-    return serverError ?? error.message;
-  }
-  if (error instanceof Error) return error.message;
-  return 'Unable to analyze this scan.';
+function toBridgeLocale(locale: string): BridgeLocale {
+  const normalized = locale.toLowerCase();
+  if (normalized.startsWith('es')) return 'es';
+  if (normalized.startsWith('fr')) return 'fr';
+  if (normalized.startsWith('de')) return 'de';
+  if (normalized.startsWith('ja') || normalized.startsWith('jp')) return 'ja';
+  if (normalized.startsWith('zh')) return 'zh';
+  return 'en';
 }
 
 type FaceGuideOverlayProps = {
@@ -210,8 +207,10 @@ function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
 
 export default function ScanIndexScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const { isPro } = useSubscription();
+  const posthog = usePostHog();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -314,20 +313,24 @@ export default function ScanIndexScreen() {
       unstable_headerLeftItems: () => [
         {
           type: 'button' as const,
-          label: 'Back',
+          label: t('common.back', { defaultValue: 'Back' }),
           icon: { type: 'sfSymbol' as const, name: 'chevron.left' as const },
           tintColor: Theme.colors.textPrimary,
           onPress: () => router.back(),
         },
       ],
     }),
-    [router]
+    [router, t]
   );
 
   const analyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
     if (isDailyScanLimitReached) {
-      setAnalysisError('Daily scan limit reached. Upgrade to Pro for unlimited scans.');
+      setAnalysisError(
+        t('scan.dailyLimitReached', {
+          defaultValue: 'Daily scan limit reached. Upgrade to Pro for unlimited scans.',
+        })
+      );
       handleOpenPaywall();
       return;
     }
@@ -340,7 +343,7 @@ export default function ScanIndexScreen() {
       const result = await analyzeFaceMutation.mutateAsync({
         imageUri: capturedImageUri,
         timestamp: createdAt,
-        locale: 'en',
+        locale: toBridgeLocale(i18n.language),
         metadata: {
           is_morning: true,
           last_water_intake_ml: 0,
@@ -352,6 +355,11 @@ export default function ScanIndexScreen() {
         imageUri: capturedImageUri,
         createdAt,
         result,
+      });
+      posthog?.capture('Scan Analyzed', {
+        score: result.score,
+        suggested_protocol: result.suggested_protocol,
+        focus_areas_count: result.focus_areas?.length ?? 0,
       });
       stopAnalyzingHaptic();
       hapticSuccess();
@@ -365,12 +373,19 @@ export default function ScanIndexScreen() {
       });
     } catch (error) {
       stopAnalyzingHaptic();
-      setAnalysisError(parseError(error));
+      const errorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : t('scan.analyzeFailed', { defaultValue: 'Unable to analyze this scan.' });
+      posthog?.capture('Scan Analysis Failed', {
+        error_message: errorMessage,
+      });
+      setAnalysisError(errorMessage);
       hapticError();
     } finally {
       setIsPersisting(false);
     }
-  }, [analyzeFaceMutation, capturedAt, capturedImageUri, handleOpenPaywall, isAnalyzing, isDailyScanLimitReached, router]);
+  }, [analyzeFaceMutation, capturedAt, capturedImageUri, handleOpenPaywall, i18n.language, isAnalyzing, isDailyScanLimitReached, posthog, router, t]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -409,7 +424,7 @@ export default function ScanIndexScreen() {
       });
 
       if (!photo?.path) {
-        throw new Error('No photo path returned from camera');
+        throw new Error(t('scan.noPhotoPath', { defaultValue: 'No photo path returned from camera' }));
       }
 
       const uri = normalizeFileUri(photo.path);
@@ -419,13 +434,20 @@ export default function ScanIndexScreen() {
       hapticImpact('medium');
     } catch (error) {
       stableFramesRef.current = 0;
-      setCaptureError(error instanceof Error ? error.message : 'Failed to capture image');
+      const captureErrorMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : t('scan.captureFailed', { defaultValue: 'Failed to capture image' });
+      posthog?.capture('Scan Capture Error', {
+        error_message: captureErrorMessage,
+      });
+      setCaptureError(captureErrorMessage);
       hapticError();
     } finally {
       setIsCapturing(false);
       captureInFlightRef.current = false;
     }
-  }, [flashEnabled, supportsFlashCapture]);
+  }, [flashEnabled, posthog, supportsFlashCapture, t]);
 
   const handleFacesDetected = useCallback(
     async (faces: Face[], frame: Frame) => {
@@ -434,7 +456,7 @@ export default function ScanIndexScreen() {
         stableFramesRef.current = 0;
         setGate({
           ...INITIAL_GATE_STATE,
-          guidance: 'Daily free scan limit reached',
+          guidance: t('scan.dailyFreeLimitGuidance', { defaultValue: 'Daily free scan limit reached' }),
         });
         return;
       }
@@ -447,7 +469,7 @@ export default function ScanIndexScreen() {
         setGate({
           ...INITIAL_GATE_STATE,
           stableFrames: stableFramesRef.current,
-          guidance: 'Center your face in frame',
+          guidance: t('scan.guidance.centerFace', { defaultValue: 'Center your face in frame' }),
         });
         return;
       }
@@ -473,11 +495,16 @@ export default function ScanIndexScreen() {
       const ready = stableFramesRef.current >= REQUIRED_STABLE_FRAMES;
       const isRecaptureBlocked = Date.now() < recaptureBlockedUntilRef.current;
 
-      let guidance = 'Hold steady...';
-      if (!faceCountOk) guidance = 'Keep only one face in frame';
-      else if (!distanceOk) guidance = faceRatio < MIN_FACE_RATIO ? 'Move closer' : 'Move slightly back';
-      else if (!poseOk) guidance = 'Look straight ahead';
-      else if (ready && !isRecaptureBlocked) guidance = 'Locked. Capturing...';
+      let guidance = t('scan.guidance.holdSteady', { defaultValue: 'Hold steady...' });
+      if (!faceCountOk) guidance = t('scan.guidance.oneFaceOnly', { defaultValue: 'Keep only one face in frame' });
+      else if (!distanceOk)
+        guidance =
+          faceRatio < MIN_FACE_RATIO
+            ? t('scan.guidance.moveCloser', { defaultValue: 'Move closer' })
+            : t('scan.guidance.moveBack', { defaultValue: 'Move slightly back' });
+      else if (!poseOk) guidance = t('scan.guidance.lookStraight', { defaultValue: 'Look straight ahead' });
+      else if (ready && !isRecaptureBlocked)
+        guidance = t('scan.guidance.lockedCapturing', { defaultValue: 'Locked. Capturing...' });
 
       setGate({
         faceCount,
@@ -498,7 +525,7 @@ export default function ScanIndexScreen() {
         await autoCapture();
       }
     },
-    [autoCapture, capturedImageUri, isCapturing, isDailyScanLimitReached]
+    [autoCapture, capturedImageUri, isCapturing, isDailyScanLimitReached, t]
   );
 
   return (
@@ -507,18 +534,36 @@ export default function ScanIndexScreen() {
 
       {!hasPermission ? (
         <View style={styles.centered}>
-          <Text style={styles.title}>Camera permission required</Text>
-          <Text style={styles.subtitle}>
-            Grant camera access to run your morning diagnostic intake scan.
+          <Text style={styles.title}>
+            {t('scan.cameraPermissionRequired', { defaultValue: 'Camera permission required' })}
           </Text>
-          <Pressable style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonLabel}>Grant Camera Access</Text>
+          <Text style={styles.subtitle}>
+            {t('scan.cameraPermissionSubtitle', {
+              defaultValue: 'Grant camera access to run your morning diagnostic intake scan.',
+            })}
+          </Text>
+          <Pressable
+            style={styles.button}
+            onPress={() => {
+              posthog?.capture('Camera Permission Requested', { screen: 'scan' });
+              requestPermission();
+            }}
+          >
+            <Text style={styles.buttonLabel}>
+              {t('scan.grantCameraAccess', { defaultValue: 'Grant Camera Access' })}
+            </Text>
           </Pressable>
         </View>
       ) : !device ? (
         <View style={styles.centered}>
-          <Text style={styles.title}>Front camera unavailable</Text>
-          <Text style={styles.subtitle}>No compatible front camera device was found.</Text>
+          <Text style={styles.title}>
+            {t('scan.frontCameraUnavailable', { defaultValue: 'Front camera unavailable' })}
+          </Text>
+          <Text style={styles.subtitle}>
+            {t('scan.frontCameraUnavailableSubtitle', {
+              defaultValue: 'No compatible front camera device was found.',
+            })}
+          </Text>
         </View>
       ) : (
         <>
@@ -562,7 +607,9 @@ export default function ScanIndexScreen() {
                 <View style={[styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}>
                   {isDailyScanLimitReached ? (
                     <Text style={styles.statusText}>
-                      Daily scan limit reached. Upgrade to Pro for unlimited scans.
+                      {t('scan.dailyLimitReached', {
+                        defaultValue: 'Daily scan limit reached. Upgrade to Pro for unlimited scans.',
+                      })}
                     </Text>
                   ) : null}
                   {analysisError ? <Text style={styles.statusText}>{analysisError}</Text> : null}
@@ -576,7 +623,9 @@ export default function ScanIndexScreen() {
                       ]}
                       onPress={isAnalyzing ? undefined : handleRetake}
                     >
-                      <Text style={styles.secondaryButtonLabel}>Retake</Text>
+                      <Text style={styles.secondaryButtonLabel}>
+                        {t('common.retake', { defaultValue: 'Retake' })}
+                      </Text>
                     </PressableScale>
                     <PressableScale
                       style={[
@@ -591,7 +640,9 @@ export default function ScanIndexScreen() {
                         <ActivityIndicator size="small" color={Theme.colors.foundation} />
                       ) : (
                         <Text style={styles.primaryButtonLabel}>
-                          {isDailyScanLimitReached ? 'Upgrade' : 'Analyze'}
+                          {isDailyScanLimitReached
+                            ? t('common.upgrade', { defaultValue: 'Upgrade' })
+                            : t('common.analyze', { defaultValue: 'Analyze' })}
                         </Text>
                       )}
                     </PressableScale>
@@ -605,16 +656,21 @@ export default function ScanIndexScreen() {
                     <View style={styles.paywallContainer}>
                       <View style={styles.paywallHeader}>
                         <Ionicons name="sparkles" size={18} color={Theme.colors.accent} />
-                        <Text style={styles.paywallTitle}>Free Scan Used</Text>
+                        <Text style={styles.paywallTitle}>
+                          {t('scan.freeScanUsed', { defaultValue: 'Free Scan Used' })}
+                        </Text>
                       </View>
                       <Text style={styles.paywallText}>
-                        You've used your daily diagnostic scan. Unlock Pro for unlimited AI face tracking and deeper insights.
+                        {t('scan.freeScanUsedMessage', {
+                          defaultValue:
+                            "You've used your daily diagnostic scan. Unlock Pro for unlimited AI face tracking and deeper insights.",
+                        })}
                       </Text>
                       {process.env.EXPO_OS === 'ios' ? (
                         <View style={styles.paywallButtonContainer}>
                           <IOSHost matchContents useViewportSizeMeasurement>
                             <IOSButton
-                              label="Unlock Pro"
+                              label={t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
                               systemImage="lock.open.fill"
                               onPress={handleOpenPaywall}
                               modifiers={[
@@ -630,7 +686,9 @@ export default function ScanIndexScreen() {
                           style={styles.paywallButtonFallback}
                           onPress={handleOpenPaywall}
                         >
-                          <Text style={styles.paywallButtonFallbackLabel}>Unlock Pro</Text>
+                          <Text style={styles.paywallButtonFallbackLabel}>
+                            {t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
+                          </Text>
                         </PressableScale>
                       )}
                     </View>
@@ -652,7 +710,9 @@ export default function ScanIndexScreen() {
                   <View style={styles.statusRow}>
                     {isCapturing ? <ActivityIndicator color={Theme.colors.accent} /> : null}
                     <Text style={styles.statusText}>
-                      {isCapturing ? 'Capturing image...' : captureError ?? ''}
+                      {isCapturing
+                        ? t('scan.capturingImage', { defaultValue: 'Capturing image...' })
+                        : captureError ?? ''}
                     </Text>
                   </View>
                 )}

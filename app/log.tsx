@@ -8,10 +8,12 @@ import { Image } from 'expo-image';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LogScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const pendingAnalysis = useFoodAnalysisStore((state) => state.pendingAnalysis);
@@ -62,13 +64,16 @@ export default function LogScreen() {
       hapticSuccess();
       router.back();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to save food log.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : t('food.errors.saveFailed', { defaultValue: 'Failed to save food log.' });
       setSaveError(message);
       hapticError();
     } finally {
       setIsSaving(false);
     }
-  }, [clearPendingAnalysis, isSaving, pendingAnalysis, queryClient, router]);
+  }, [clearPendingAnalysis, isSaving, pendingAnalysis, queryClient, router, t]);
 
   const handleCancel = useCallback(() => {
     hapticSelection();
@@ -87,15 +92,19 @@ export default function LogScreen() {
         gap: 12,
       }}
     >
-      <Stack.Screen options={{ title: 'Food Log', headerShown: true }} />
+      <Stack.Screen
+        options={{ title: t('food.foodLog', { defaultValue: 'Food Log' }), headerShown: true }}
+      />
 
       {!pendingAnalysis ? (
         <View style={styles.card}>
           <Text selectable style={styles.title}>
-            No Pending Food Result
+            {t('food.noPendingFoodResult', { defaultValue: 'No Pending Food Result' })}
           </Text>
           <Text selectable style={styles.secondary}>
-            Capture and analyze a food image first.
+            {t('food.captureBeforeResult', {
+              defaultValue: 'Capture and analyze a food image first.',
+            })}
           </Text>
         </View>
       ) : (
@@ -106,7 +115,7 @@ export default function LogScreen() {
 
           <View style={styles.card}>
             <Text selectable style={styles.label}>
-              FOOD
+              {t('food.food', { defaultValue: 'Food' }).toUpperCase()}
             </Text>
             <Text selectable style={styles.value}>
               {pendingAnalysis.result.food_name}
@@ -115,7 +124,7 @@ export default function LogScreen() {
 
           <View style={styles.card}>
             <Text selectable style={styles.label}>
-              SODIUM
+              {t('food.sodium', { defaultValue: 'Sodium' }).toUpperCase()}
             </Text>
             <Text selectable style={styles.value}>
               {pendingAnalysis.result.sodium_mg.toLocaleString()} mg
@@ -124,7 +133,7 @@ export default function LogScreen() {
 
           <View style={styles.card}>
             <Text selectable style={styles.label}>
-              BLOAT RISK
+              {t('food.bloatRisk', { defaultValue: 'Bloat Risk' }).toUpperCase()}
             </Text>
             <Text selectable style={styles.value}>
               {pendingAnalysis.result.bloat_risk.toUpperCase()}
@@ -133,7 +142,7 @@ export default function LogScreen() {
 
           <View style={styles.card}>
             <Text selectable style={styles.label}>
-              COUNTER MEASURE
+              {t('food.counterMeasure', { defaultValue: 'Counter Measure' }).toUpperCase()}
             </Text>
             <Text selectable style={styles.secondary}>
               {pendingAnalysis.result.counter_measure}
@@ -149,7 +158,7 @@ export default function LogScreen() {
           <View style={styles.actionsRow}>
             <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={handleCancel}>
               <Text selectable style={styles.secondaryButtonLabel}>
-                Cancel
+                {t('common.cancel', { defaultValue: 'Cancel' })}
               </Text>
             </Pressable>
             <Pressable
@@ -158,7 +167,9 @@ export default function LogScreen() {
               disabled={!canConfirm}
             >
               <Text selectable style={styles.primaryButtonLabel}>
-                {isSaving ? 'Saving...' : 'Confirm'}
+                {isSaving
+                  ? t('common.saving', { defaultValue: 'Saving...' })
+                  : t('common.confirm', { defaultValue: 'Confirm' })}
               </Text>
             </Pressable>
           </View>

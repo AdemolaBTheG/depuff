@@ -2,12 +2,12 @@ import { Theme } from '@/constants/Theme';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import React from 'react';
-import { Platform, PlatformColor } from 'react-native';
+import { PlatformColor } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function HomeLayout() {
   const router = useRouter();
- const groupedBackgroundColor =
-  Platform.OS === 'ios' ? PlatformColor('systemGroupedBackground') : '#F2F2F7';
+  const { t } = useTranslation();
   return (
     <Stack>
       <Stack.Screen
@@ -21,11 +21,11 @@ export default function HomeLayout() {
           contentStyle: {
             backgroundColor: PlatformColor('systemGroupedBackground'),
           },
-          title: 'Home',
+          title: t('home.title', { defaultValue: 'Home' }),
           unstable_headerLeftItems: () => [
             {
               type: 'button',
-              label: 'Settings',
+              label: t('settings.title', { defaultValue: 'Settings' }),
               icon: { type: 'sfSymbol', name: 'gearshape' },
               
               onPress: () => router.push('/(settings)' as never),
@@ -34,7 +34,7 @@ export default function HomeLayout() {
           unstable_headerRightItems: () => [
             {
               type: 'button',
-              label: 'Scan',
+              label: t('scan.title', { defaultValue: 'Scan' }),
               icon: { type: 'sfSymbol', name: 'camera' },
               tintColor: Theme.colors.accent,
               onPress: () => router.push('/(scan)' as never),

@@ -9,6 +9,7 @@ import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useMemo, useState } from 'react';
 import { FlatList, PlatformColor, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type FoodLogListItem = {
@@ -22,20 +23,20 @@ type FoodLogListItem = {
   logDate: string;
 };
 
-function formatRiskLabel(value: string | null): string {
-  if (!value) return 'Unknown';
+function formatRiskLabel(value: string | null, unknownLabel: string): string {
+  if (!value) return unknownLabel;
   return value
     .replace(/[_-]/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatLoggedAt(createdAt: string | null, logDate: string): string {
+function formatLoggedAt(createdAt: string | null, logDate: string, locale: string): string {
   if (!createdAt) return logDate;
   const normalized = createdAt.includes('T') ? createdAt : createdAt.replace(' ', 'T');
   const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return logDate;
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -49,6 +50,7 @@ function normalizeFoodFilter(value: string): string {
 
 export default function AllFoodLogsScreen() {
   const insets = useSafeAreaInsets();
+  const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const { food } = useLocalSearchParams<{ food?: string | string[] }>();
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +69,7 @@ export default function AllFoodLogsScreen() {
 
   const allFoodLogsQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['food-logs-all', normalizedFoodFilter],
+    queryKey: ['food-logs-all', normalizedFoodFilter, i18n.language],
     queryFn: async (): Promise<FoodLogListItem[]> => {
       if (!db) return [];
       const rows = await db
@@ -86,7 +88,7 @@ export default function AllFoodLogsScreen() {
 
       const mappedRows = rows.map((row) => ({
         id: row.id,
-        foodName: row.foodName ?? 'Unnamed food',
+        foodName: row.foodName ?? t('food.unnamedFood', { defaultValue: 'Unnamed food' }),
         sodiumEstimateMg: row.sodiumEstimateMg ?? 0,
         bloatRiskLevel: row.bloatRiskLevel ?? null,
         aiReasoning: row.aiReasoning ?? null,
@@ -104,16 +106,15 @@ export default function AllFoodLogsScreen() {
   });
 
   const logs = allFoodLogsQuery.data ?? [];
-  const totalLogs = logs.length;
 
   return (
     <>
       <Stack.Screen 
         options={{ 
-          title: filteredFoodName ?? 'All Logged Foods', 
+          title: filteredFoodName ?? t('food.allLoggedFoods', { defaultValue: 'All Logged Foods' }), 
           headerShadowVisible: false,
           headerSearchBarOptions: {
-            placeholder: 'Search logged foods',
+            placeholder: t('food.searchPlaceholder', { defaultValue: 'Search logged foods' }),
             hideWhenScrolling: false,
             onChangeText: (e) => setSearchQuery(e.nativeEvent.text),
             onCancelButtonPress: () => setSearchQuery(''),
@@ -151,7 +152,7 @@ export default function AllFoodLogsScreen() {
                         </Text>
                         <View style={styles.headerRight}>
                           <Text selectable style={styles.timeText}>
-                            {formatLoggedAt(item.createdAt, item.logDate)}
+                            {formatLoggedAt(item.createdAt, item.logDate, i18n.language)}
                           </Text>
                           <Ionicons name="chevron-forward" size={17} color={PlatformColor('tertiaryLabel')} />
                         </View>
@@ -161,7 +162,10 @@ export default function AllFoodLogsScreen() {
                           {item.sodiumEstimateMg.toLocaleString()} mg
                         </Text>
                         <Text selectable style={styles.riskText}>
-                          {formatRiskLabel(item.bloatRiskLevel)}
+                          {formatRiskLabel(
+                            item.bloatRiskLevel,
+                            t('common.unknown', { defaultValue: 'Unknown' })
+                          )}
                         </Text>
                       </View>
                     </View>
@@ -181,12 +185,21 @@ export default function AllFoodLogsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyCard}>
             <Text selectable style={styles.emptyTitle}>
-              {normalizedFoodFilter ? `No logs found for "${searchQuery || filteredFoodName}"` : 'No food logs yet'}
+              {normalizedFoodFilter
+                ? t('food.noLogsFoundFor', {
+                    defaultValue: `No logs found for "${searchQuery || filteredFoodName}"`,
+                    value: searchQuery || filteredFoodName,
+                  })
+                : t('food.noLogsYet', { defaultValue: 'No food logs yet' })}
             </Text>
             <Text selectable style={styles.emptyText}>
               {normalizedFoodFilter
-                ? 'Try searching for another food or clearing the filter.'
-                : 'Capture your first meal to start tracking sodium and bloat risk.'}
+                ? t('food.tryAnotherSearch', {
+                    defaultValue: 'Try searching for another food or clearing the filter.',
+                  })
+                : t('food.captureFirstMeal', {
+                    defaultValue: 'Capture your first meal to start tracking sodium and bloat risk.',
+                  })}
             </Text>
           </View>
         }

@@ -57,6 +57,8 @@ type DraggableSliderProps = {
   lineColor?: string;
   // Optional: The color of the big lines (default is #c6c6c6)
   bigLineColor?: string;
+  // Optional: Boundary fade color, defaults to black/white based on line color
+  boundaryGradientColor?: string;
   // Optional: Initial slider progress, from 0 to 1
   initialProgress?: number;
 };
@@ -75,6 +77,7 @@ export const DraggableSlider: React.FC<DraggableSliderProps> = ({
   showBoundaryGradient = true,
   lineColor = '#c6c6c6',
   bigLineColor = '#c6c6c6',
+  boundaryGradientColor,
   initialProgress = 0,
 }) => {
   const scrollContext = useSharedValue(0);
@@ -244,7 +247,8 @@ export const DraggableSlider: React.FC<DraggableSliderProps> = ({
                   height={maxLineHeight}
                   width={ScreenWidth}
                   mainColor={
-                    !Color(lineColor).isLight() ? '#000000' : '#ffffff'
+                    boundaryGradientColor ??
+                    (!Color(lineColor).isLight() ? '#000000' : '#ffffff')
                   }
                 />
               )}

@@ -15,7 +15,7 @@ type BoundaryGradientProps = {
 // Functional component for boundary gradient
 export const BoundaryGradient: FC<BoundaryGradientProps> = memo(
   ({ x, y, width, height, mainColor }) => {
-    const transparent = Color(mainColor).isDark() ? '#00000000' : '#ffffff00';
+    const transparent = Color(mainColor).alpha(0).string();
 
     // Memoizing the colors array
     const colors = useMemo(() => {
@@ -40,3 +40,5 @@ export const BoundaryGradient: FC<BoundaryGradientProps> = memo(
     );
   },
 );
+
+BoundaryGradient.displayName = 'BoundaryGradient';

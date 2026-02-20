@@ -23,8 +23,10 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, PlatformColor, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePostHog } from 'posthog-react-native';
 
 type RouteParams = {
   imageUri?: string | string[];
@@ -69,12 +71,12 @@ function parseFlaggedAreas(value: string | null): string[] {
   }
 }
 
-function formatScanTimestamp(value?: string | null): string {
-  if (!value) return 'Unknown time';
+function formatScanTimestamp(value: string | null | undefined, locale: string, unknownTimeLabel: string): string {
+  if (!value) return unknownTimeLabel;
   const normalized = value.includes('T') ? value : value.replace(' ', 'T');
   const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return 'Unknown time';
-  return new Intl.DateTimeFormat('en-US', {
+  if (Number.isNaN(parsed.getTime())) return unknownTimeLabel;
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -147,8 +149,10 @@ function BloatIndexGauge({ score }: { score: number }) {
 
 export default function Result() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const insets = useSafeAreaInsets();
+  const posthog = usePostHog();
   const reportRef = useRef<View>(null);
   const params = useLocalSearchParams<RouteParams>();
   const imageUri = useMemo(() => firstParamValue(params.imageUri), [params.imageUri]);
@@ -162,7 +166,10 @@ export default function Result() {
     [result?.focus_areas]
   );
   const protocol = useMemo(
-    () => (result?.suggested_protocol ?? '').replace(/_/g, ' ').toUpperCase(),
+    () =>
+      (result?.suggested_protocol ?? '')
+        .replace(/_/g, ' ')
+        .toUpperCase(),
     [result?.suggested_protocol]
   );
   const [isSharing, setIsSharing] = useState(false);
@@ -208,20 +215,23 @@ export default function Result() {
     if (focusAreas.length > 0) return focusAreas;
     return parseFlaggedAreas(persistedScan?.flaggedAreas ?? null).map(formatFocusAreaTag);
   }, [focusAreas, persistedScan?.flaggedAreas]);
-  const scanTimestampLabel = useMemo(
-    () => formatScanTimestamp(capturedAt ?? persistedScan?.createdAt ?? null),
-    [capturedAt, persistedScan?.createdAt]
-  );
+  const scanTimestampLabel = useMemo(() => {
+    return formatScanTimestamp(
+      capturedAt ?? persistedScan?.createdAt ?? null,
+      i18n.language,
+      t('common.unknownTime', { defaultValue: 'Unknown time' })
+    );
+  }, [capturedAt, i18n.language, persistedScan?.createdAt, t]);
   const hasRenderableScan = Boolean(result || persistedScan);
   const hasLivePayload = Boolean(result);
   const hasPersistedPayload = Boolean(persistedScan);
   const sourceLabel = hasLivePayload
     ? hasPersistedPayload
-      ? 'Live payload + saved scan'
-      : 'Live payload'
+      ? t('scan.report.source.liveAndSaved', { defaultValue: 'Live payload + saved scan' })
+      : t('scan.report.source.live', { defaultValue: 'Live payload' })
     : hasPersistedPayload
-      ? 'Saved scan'
-      : 'Preview only';
+      ? t('scan.report.source.saved', { defaultValue: 'Saved scan' })
+      : t('scan.report.source.preview', { defaultValue: 'Preview only' });
 
   useEffect(
     () => () => {
@@ -237,14 +247,18 @@ export default function Result() {
   ) => {
     const available = await Sharing.isAvailableAsync();
     if (!available) {
-      throw new Error('Sharing is not available on this device.');
+      throw new Error(
+        t('scan.report.sharingUnavailable', {
+          defaultValue: 'Sharing is not available on this device.',
+        })
+      );
     }
     await Sharing.shareAsync(normalizeFileUri(fileUri), {
       dialogTitle,
       mimeType,
       UTI: uti,
     });
-  }, []);
+  }, [t]);
 
   const handleShareReport = useCallback(async () => {
     setIsSharing(true);
@@ -252,7 +266,9 @@ export default function Result() {
     try {
       const snapshot = await makeImageFromView(reportRef);
       if (!snapshot) {
-        throw new Error('Unable to snapshot the report.');
+        throw new Error(
+          t('scan.report.snapshotFailed', { defaultValue: 'Unable to snapshot the report.' })
+        );
       }
 
       const base64Png = snapshot.encodeToBase64(ImageFormat.PNG, 100);
@@ -260,7 +276,13 @@ export default function Result() {
       reportFile.create({ overwrite: true, intermediates: true });
       reportFile.write(base64Png, { encoding: 'base64' });
 
-      await shareFileAsync(reportFile.uri, 'Share Clinical Report', 'image/png', 'public.png');
+      await shareFileAsync(
+        reportFile.uri,
+        t('scan.report.shareTitle', { defaultValue: 'Share Clinical Report' }),
+        'image/png',
+        'public.png'
+      );
+      posthog?.capture('Scan Shared', { type: 'report' });
       hapticSuccess();
     } catch (error) {
       console.warn(error);
@@ -268,7 +290,7 @@ export default function Result() {
     } finally {
       setIsSharing(false);
     }
-  }, [shareFileAsync]);
+  }, [posthog, shareFileAsync, t]);
 
   const handleSaveFaceImage = useCallback(async () => {
     if (!imageUri) return;
@@ -276,7 +298,12 @@ export default function Result() {
     setIsSharing(true);
     hapticSelection();
     try {
-      await shareFileAsync(imageUri, 'Save Face Image', 'image/*', 'public.image');
+      await shareFileAsync(
+        imageUri,
+        t('scan.report.saveImageTitle', { defaultValue: 'Save Face Image' }),
+        'image/*',
+        'public.image'
+      );
       hapticSuccess();
     } catch (error) {
       console.warn(error);
@@ -284,7 +311,7 @@ export default function Result() {
     } finally {
       setIsSharing(false);
     }
-  }, [imageUri, shareFileAsync]);
+  }, [imageUri, shareFileAsync, t]);
 
   const runDeleteScan = useCallback(async () => {
     setIsDeleting(true);
@@ -293,26 +320,34 @@ export default function Result() {
         imageUri,
         createdAt: capturedAt,
       });
+      posthog?.capture('Scan Deleted');
       hapticWarning();
       router.replace('/(scan)' as never);
     } catch (error) {
       hapticError();
       Alert.alert(
-        'Delete failed',
-        error instanceof Error ? error.message : 'Unable to delete this scan.'
+        t('scan.report.deleteFailedTitle', { defaultValue: 'Delete failed' }),
+        error instanceof Error
+          ? error.message
+          : t('scan.report.deleteFailedMessage', { defaultValue: 'Unable to delete this scan.' })
       );
     } finally {
       setIsDeleting(false);
     }
-  }, [capturedAt, imageUri, router]);
+  }, [capturedAt, imageUri, posthog, router, t]);
 
   const confirmDeleteScan = useCallback(() => {
     hapticSelection();
-    Alert.alert('Delete this scan?', 'This will remove this report and photo from local storage.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => void runDeleteScan() },
+    Alert.alert(
+      t('scan.report.confirmDeleteTitle', { defaultValue: 'Delete this scan?' }),
+      t('scan.report.confirmDeleteMessage', {
+        defaultValue: 'This will remove this report and photo from local storage.',
+      }),
+      [
+      { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
+      { text: t('common.delete', { defaultValue: 'Delete' }), style: 'destructive', onPress: () => void runDeleteScan() },
     ]);
-  }, [runDeleteScan]);
+  }, [runDeleteScan, t]);
 
   return (
     <>
@@ -330,7 +365,7 @@ export default function Result() {
             <>
               <View style={styles.tagCard}>
                 <Text selectable style={styles.sectionLabel}>
-                  FLAGGED AREAS
+                  {t('scan.report.flaggedAreas', { defaultValue: 'Flagged Areas' }).toUpperCase()}
                 </Text>
                 {effectiveFocusAreas.length ? (
                   <View style={styles.tagRow}>
@@ -344,38 +379,43 @@ export default function Result() {
                   </View>
                 ) : (
                   <Text selectable style={styles.emptyTagText}>
-                    No flagged regions
+                    {t('scan.report.noFlaggedRegions', { defaultValue: 'No flagged regions' })}
                   </Text>
                 )}
               </View>
 
               <View style={styles.scoreCard}>
                 <Text selectable style={styles.scoreLabel}>
-                  BLOAT INDEX
+                  {t('scan.report.bloatIndex', { defaultValue: 'Bloat Index' }).toUpperCase()}
                 </Text>
                 <BloatIndexGauge score={effectiveScore ?? 0} />
               </View>
 
               <View style={styles.analysisCard}>
                 <Text selectable style={styles.sectionLabel}>
-                  ANALYSIS
+                  {t('scan.analysis', { defaultValue: 'Analysis' }).toUpperCase()}
                 </Text>
                 <Text selectable style={styles.analysisText}>
-                  {analysisText || 'No analysis payload found for this result.'}
+                  {analysisText ||
+                    t('scan.report.noPayload', {
+                      defaultValue: 'No analysis payload found for this result.',
+                    })}
                 </Text>
                 {protocol ? (
                   <Text selectable style={styles.protocolText}>
-                    <Text style={styles.protocolLabel}>Protocol: </Text>
+                    <Text style={styles.protocolLabel}>
+                      {t('scan.report.protocol', { defaultValue: 'Protocol' })}:{" "}
+                    </Text>
                     {protocol}
                   </Text>
                 ) : null}
                 
                 <View style={styles.metaRow}>
                   <Text selectable style={styles.metaText}>
-                    Scanned: {scanTimestampLabel}
+                    {t('scan.report.scanned', { defaultValue: 'Scanned' })}: {scanTimestampLabel}
                   </Text>
                   <Text selectable style={styles.metaText}>
-                    Source: {sourceLabel}
+                    {t('scan.report.sourceLabel', { defaultValue: 'Source' })}: {sourceLabel}
                   </Text>
                 </View>
               </View>
@@ -383,7 +423,9 @@ export default function Result() {
           ) : (
             <View style={styles.analysisCard}>
               <Text selectable style={styles.analysisText}>
-                No analysis payload found for this result.
+                {t('scan.report.noPayload', {
+                  defaultValue: 'No analysis payload found for this result.',
+                })}
               </Text>
             </View>
           )}
@@ -395,7 +437,7 @@ export default function Result() {
           >
             <IOSHStack spacing={12}>
               <IOSButton
-                label="New Scan"
+                label={t('scan.newScan', { defaultValue: 'New Scan' })}
                 systemImage="camera.viewfinder"
                 role="cancel"
                 onPress={() => {
@@ -410,7 +452,7 @@ export default function Result() {
               />
               <IOSSpacer />
               <IOSButton
-                label="Done"
+                label={t('common.done', { defaultValue: 'Done' })}
                 systemImage="checkmark"
                 onPress={() => {
                   hapticImpact('light');
@@ -429,7 +471,7 @@ export default function Result() {
             <View style={styles.actions}>
               <View style={styles.actionItem}>
                 <NativeButton
-                  label="New Scan"
+                  label={t('scan.newScan', { defaultValue: 'New Scan' })}
                   kind="secondary"
                   role="cancel"
                   onPress={() => {
@@ -440,7 +482,7 @@ export default function Result() {
               </View>
               <View style={styles.actionItem}>
                 <NativeButton
-                  label="Done"
+                  label={t('common.done', { defaultValue: 'Done' })}
                   onPress={() => {
                     hapticImpact('light');
                     router.replace('/(tabs)/(home)' as never);
@@ -454,7 +496,7 @@ export default function Result() {
 
       <Stack.Screen
         options={{
-          title: 'Report',
+          title: t('scan.report.title', { defaultValue: 'Report' }),
           headerShown: true,
           headerTransparent: isLiquidGlassAvailable(),
           headerStyle: { backgroundColor: isLiquidGlassAvailable() ? 'transparent' : '#F2F2F7' },
@@ -469,14 +511,14 @@ export default function Result() {
               onPress={() => void handleShareReport()}
               disabled={isSharing}
             >
-              Share Report
+              {t('scan.report.share', { defaultValue: 'Share Report' })}
             </Stack.Toolbar.MenuAction>
             <Stack.Toolbar.MenuAction
               icon="square.and.arrow.down"
               onPress={() => void handleSaveFaceImage()}
               disabled={!imageUri || isSharing}
             >
-              Save Image
+              {t('scan.report.saveImage', { defaultValue: 'Save Image' })}
             </Stack.Toolbar.MenuAction>
             <Stack.Toolbar.MenuAction
               icon="trash"
@@ -484,7 +526,7 @@ export default function Result() {
               onPress={confirmDeleteScan}
               disabled={isDeleting || isSharing || (!imageUri && !capturedAt)}
             >
-              Delete Scan
+              {t('scan.report.deleteScan', { defaultValue: 'Delete Scan' })}
             </Stack.Toolbar.MenuAction>
           </Stack.Toolbar.Menu>
         </Stack.Toolbar>

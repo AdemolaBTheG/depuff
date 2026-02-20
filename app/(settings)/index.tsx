@@ -1,11 +1,13 @@
-import { useSettingsStore } from '@/stores/settingsStore';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as Linking from 'expo-linking';
 import { PressableScale } from 'pressto';
 import React, { useEffect } from 'react';
+import { usePostHog } from 'posthog-react-native';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   I18nManager,
@@ -25,12 +27,14 @@ import { useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-n
 // 2. Mocked `isPro` as false to show the banner.
 // 3. Removed Zeego DropdownMenu in favor of standard Pressable routing or ActionSheets to keep dependencies clean.
 
-const termsUrl = 'https://depuff.app/terms';
-const privacyUrl = 'https://depuff.app/privacy';
+const termsUrl = 'https://ajar-prune-18d.notion.site/Depuff-AI-Terms-Of-Service-30d99fdd69fc801786cdedda3f712ee7?pvs=74';
+const privacyUrl = 'https://ajar-prune-18d.notion.site/Depuff-AI-Privacy-Policy-30d99fdd69fc8039a6e6e1d5271839ab?pvs=74';
 
 export default function SettingsIndex() {
   const { width, height } = useWindowDimensions();
   const { waterGoalMl, sodiumGoalMg, setWaterGoalMl, setSodiumGoalMg } = useSettingsStore();
+  const { t } = useTranslation();
+  const posthog = usePostHog();
 
   const { isPro } = useSubscription();
   const isRTL = I18nManager.isRTL;
@@ -46,16 +50,24 @@ export default function SettingsIndex() {
     if (supported) {
       await Linking.openURL(url);
     } else {
-      Alert.alert('Unable to open URL', `Cannot open ${url}`);
+      Alert.alert(
+        t('settings.alerts.cannotOpenUrlTitle', { defaultValue: 'Unable to open URL' }),
+        t('settings.alerts.cannotOpenUrlMessage', { defaultValue: `Cannot open ${url}`, url })
+      );
     }
   };
 
   const writeReview = () => {
     if (Platform.OS === 'ios') {
       // Depuff App Store ID placeholder
-      Linking.openURL(`itms-apps://itunes.apple.com/app/viewContentsUserReviews/id000000000?action=write-review`);
+      Linking.openURL(`itms-apps://itunes.apple.com/app/viewContentsUserReviews/id6759452702?action=write-review`);
     } else {
-      Alert.alert('Review', 'Reviewing is only supported on iOS right now.');
+      Alert.alert(
+        t('settings.alerts.reviewTitle', { defaultValue: 'Review' }),
+        t('settings.alerts.reviewMessage', {
+          defaultValue: 'Reviewing is only supported on iOS right now.',
+        })
+      );
     }
   };
 
@@ -64,15 +76,20 @@ export default function SettingsIndex() {
       title,
       message,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel', { defaultValue: 'Cancel' }), style: 'cancel' },
         { 
-          text: 'Save', 
+          text: t('common.save', { defaultValue: 'Save' }), 
           onPress: (val: any) => {
             const num = parseInt(val || '', 10);
             if (!isNaN(num) && num > 0) {
               onSave(num);
             } else {
-              Alert.alert('Invalid Input', 'Please enter a valid number greater than 0.');
+              Alert.alert(
+                t('settings.alerts.invalidInputTitle', { defaultValue: 'Invalid Input' }),
+                t('settings.alerts.invalidInputMessage', {
+                  defaultValue: 'Please enter a valid number greater than 0.',
+                })
+              );
             }
           }
         }
@@ -85,37 +102,71 @@ export default function SettingsIndex() {
 
   const SECTIONS = [
     {
-      title: 'Current Goals',
+      title: t('settings.sections.currentGoals', { defaultValue: 'Current Goals' }),
       data: [
         [
           {
             id: 'waterGoal',
-            label: `Hydration (${waterGoalMl} ml)`,
+            label: t('settings.goals.hydrationLabel', {
+              defaultValue: `Hydration (${waterGoalMl} ml)`,
+              value: waterGoalMl,
+            }),
             icon: 'water',
             rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
             rightIconType: 'Ionicons',
-            onPress: () => promptGoal('Hydration Goal', 'Enter your daily water goal in milliliters (ml):', waterGoalMl, setWaterGoalMl),
+            onPress: () =>
+              promptGoal(
+                t('settings.goals.hydrationPromptTitle', { defaultValue: 'Hydration Goal' }),
+                t('settings.goals.hydrationPromptMessage', {
+                  defaultValue: 'Enter your daily water goal in milliliters (ml):',
+                }),
+                waterGoalMl,
+                (val) => {
+                  setWaterGoalMl(val);
+                  posthog?.capture('Settings Goal Updated', {
+                    goal_type: 'hydration',
+                    new_value_ml: val,
+                  });
+                }
+              ),
             iconColor: PlatformColor('systemBlue'),
           },
           {
             id: 'sodiumGoal',
-            label: `Sodium Limit (${sodiumGoalMg} mg)`,
+            label: t('settings.goals.sodiumLabel', {
+              defaultValue: `Sodium Limit (${sodiumGoalMg} mg)`,
+              value: sodiumGoalMg,
+            }),
             icon: 'restaurant',
             rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
             rightIconType: 'Ionicons',
-            onPress: () => promptGoal('Sodium Limit', 'Enter your daily sodium limit in milligrams (mg):', sodiumGoalMg, setSodiumGoalMg),
+            onPress: () =>
+              promptGoal(
+                t('settings.goals.sodiumPromptTitle', { defaultValue: 'Sodium Limit' }),
+                t('settings.goals.sodiumPromptMessage', {
+                  defaultValue: 'Enter your daily sodium limit in milligrams (mg):',
+                }),
+                sodiumGoalMg,
+                (val) => {
+                  setSodiumGoalMg(val);
+                  posthog?.capture('Settings Goal Updated', {
+                    goal_type: 'sodium',
+                    new_value_mg: val,
+                  });
+                }
+              ),
             iconColor: PlatformColor('systemOrange'),
           },
         ],
       ],
     },
     {
-      title: 'Support',
+      title: t('settings.sections.support', { defaultValue: 'Support' }),
       data: [
         [
           {
             id: 'rate',
-            label: 'Rate Depuff',
+            label: t('settings.support.rateApp', { defaultValue: 'Rate Depuff' }),
             icon: 'star',
             rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
             rightIconType: 'Ionicons',
@@ -124,7 +175,7 @@ export default function SettingsIndex() {
           },
           {
             id: 'feedback',
-            label: 'Contact Us',
+            label: t('settings.support.contactUs', { defaultValue: 'Contact Us' }),
             icon: 'mail',
             rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
             rightIconType: 'Ionicons',
@@ -135,12 +186,12 @@ export default function SettingsIndex() {
       ],
     },
     {
-      title: 'Legal',
+      title: t('settings.sections.legal', { defaultValue: 'Legal' }),
       data: [
         [
           {
             id: 'terms',
-            label: 'Terms of Service',
+            label: t('settings.legal.terms', { defaultValue: 'Terms of Service' }),
             icon: 'document-text',
             rightIcon: isRTL ? 'arrow-top-left' : 'arrow-top-right',
             rightIconType: 'Ionicons',
@@ -149,7 +200,7 @@ export default function SettingsIndex() {
           },
           {
             id: 'privacy',
-            label: 'Privacy Policy',
+            label: t('settings.legal.privacy', { defaultValue: 'Privacy Policy' }),
             icon: 'lock-closed',
             rightIcon: isRTL ? 'arrow-top-left' : 'arrow-top-right',
             rightIconType: 'Ionicons',
@@ -206,8 +257,14 @@ export default function SettingsIndex() {
                   <Ionicons name="sparkles" size={24} color="white" />
                 </View>
                 <View>
-                  <Text selectable style={styles.proTitle}>Depuff Pro</Text>
-                  <Text selectable style={styles.proSubtitle}>Unlock all facial scanning features</Text>
+                  <Text selectable style={styles.proTitle}>
+                    {t('settings.pro.title', { defaultValue: 'Depuff Pro' })}
+                  </Text>
+                  <Text selectable style={styles.proSubtitle}>
+                    {t('settings.pro.subtitle', {
+                      defaultValue: 'Unlock all facial scanning features',
+                    })}
+                  </Text>
                 </View>
               </View>
             </View>

@@ -4,7 +4,7 @@ import { Theme } from '@/constants/Theme';
 import { foodLogs } from '@/db/schema';
 import { useAnalyzeFoodMutation } from '@/hooks/useBridgeApi';
 import { toDailyDate } from '@/hooks/useDayStatus';
-import { BridgeApiError } from '@/services/bridge-api';
+import { BridgeApiError, type BridgeLocale } from '@/services/bridge-api';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { useDbStore } from '@/stores/dbStore';
 import { useFoodAnalysisStore } from '@/stores/foodAnalysisStore';
@@ -19,14 +19,16 @@ import { Stack, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, type Camera as VisionCamera } from 'react-native-vision-camera';
+import { usePostHog } from 'posthog-react-native';
 
 function normalizeFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
 
-function toErrorMessage(error: unknown): string {
+function toErrorMessage(error: unknown, fallbackMessage: string): string {
   if (error instanceof BridgeApiError) {
     const serverError =
       typeof error.body === 'object' &&
@@ -40,13 +42,25 @@ function toErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
     return error.message;
   }
-  return 'Unable to capture image.';
+  return fallbackMessage;
+}
+
+function toBridgeLocale(locale: string): BridgeLocale {
+  const normalized = locale.toLowerCase();
+  if (normalized.startsWith('es')) return 'es';
+  if (normalized.startsWith('fr')) return 'fr';
+  if (normalized.startsWith('de')) return 'de';
+  if (normalized.startsWith('ja') || normalized.startsWith('jp')) return 'ja';
+  if (normalized.startsWith('zh')) return 'zh';
+  return 'en';
 }
 
 export default function FoodIndexScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const { isPro } = useSubscription();
+  const posthog = usePostHog();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const cameraRef = useRef<VisionCamera | null>(null);
@@ -100,7 +114,7 @@ export default function FoodIndexScreen() {
   const screenOptions = useMemo(
     () => ({
       headerShown: true,
-      title: 'Log Food',
+      title: t('food.logFood', { defaultValue: 'Log Food' }),
       headerTransparent: true,
       headerTintColor: Theme.colors.textPrimary,
       headerBackButtonDisplayMode: 'minimal' as const,
@@ -109,7 +123,9 @@ export default function FoodIndexScreen() {
           ? [
               {
                 type: 'button' as const,
-                label: flashEnabled ? 'Flash Off' : 'Flash On',
+                label: flashEnabled
+                  ? t('scan.flashOff', { defaultValue: 'Flash Off' })
+                  : t('scan.flashOn', { defaultValue: 'Flash On' }),
                 icon: { type: 'sfSymbol' as const, name: flashIconName },
                 tintColor: Theme.colors.accent,
                 onPress: () => {
@@ -121,7 +137,7 @@ export default function FoodIndexScreen() {
           : []),
       ],
     }),
-    [canUseFlashControl, flashEnabled, flashIconName]
+    [canUseFlashControl, flashEnabled, flashIconName, t]
   );
 
   const handleCapture = useCallback(async () => {
@@ -139,18 +155,20 @@ export default function FoodIndexScreen() {
       });
 
       if (!photo?.path) {
-        throw new Error('No image path returned by camera');
+        throw new Error(t('food.errors.noImagePath', { defaultValue: 'No image path returned by camera' }));
       }
 
       setCapturedImageUri(normalizeFileUri(photo.path));
       hapticSuccess();
     } catch (error) {
-      setCaptureError(toErrorMessage(error));
+      setCaptureError(
+        toErrorMessage(error, t('food.errors.captureFailed', { defaultValue: 'Unable to capture image.' }))
+      );
       hapticError();
     } finally {
       setIsCapturing(false);
     }
-  }, [clearPendingAnalysis, flashEnabled, isCapturing, supportsFlashCapture]);
+  }, [clearPendingAnalysis, flashEnabled, isCapturing, supportsFlashCapture, t]);
 
   const handleRetake = useCallback(() => {
     hapticSelection();
@@ -171,7 +189,11 @@ export default function FoodIndexScreen() {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        throw new Error('Photo library access is required to choose an image.');
+        throw new Error(
+          t('food.errors.libraryPermissionRequired', {
+            defaultValue: 'Photo library access is required to choose an image.',
+          })
+        );
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -184,23 +206,32 @@ export default function FoodIndexScreen() {
       if (result.canceled || result.assets.length === 0) return;
       const pickedUri = result.assets[0]?.uri;
       if (!pickedUri) {
-        throw new Error('No image selected.');
+        throw new Error(t('food.errors.noImageSelected', { defaultValue: 'No image selected.' }));
       }
 
       setCapturedImageUri(pickedUri.includes('://') ? pickedUri : normalizeFileUri(pickedUri));
       hapticSuccess();
     } catch (error) {
-      setCaptureError(toErrorMessage(error));
+      setCaptureError(
+        toErrorMessage(
+          error,
+          t('food.errors.libraryPickFailed', { defaultValue: 'Unable to select this image.' })
+        )
+      );
       hapticError();
     } finally {
       setIsPickingImage(false);
     }
-  }, [clearPendingAnalysis, isBusy]);
+  }, [clearPendingAnalysis, isBusy, t]);
 
   const handleAnalyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
     if (isDailyFoodLimitReached) {
-      setCaptureError('Daily food analysis limit reached. Upgrade to Pro for unlimited analyses.');
+      setCaptureError(
+        t('food.errors.dailyLimitReached', {
+          defaultValue: 'Daily food analysis limit reached. Upgrade to Pro for unlimited analyses.',
+        })
+      );
       handleOpenPaywall();
       return;
     }
@@ -213,9 +244,14 @@ export default function FoodIndexScreen() {
       const result = await analyzeFoodMutation.mutateAsync({
         imageUri: capturedImageUri,
         timestamp: capturedAt,
-        locale: 'en',
+        locale: toBridgeLocale(i18n.language),
       });
 
+      posthog?.capture('Food Analyzed', {
+        food_name: result.food_name,
+        sodium_mg: result.sodium_mg,
+        bloat_risk: result.bloat_risk,
+      });
       setPendingAnalysis({
         imageUri: capturedImageUri,
         capturedAt,
@@ -224,10 +260,17 @@ export default function FoodIndexScreen() {
       hapticSuccess();
       router.push('/(food)/result' as never);
     } catch (error) {
-      setCaptureError(toErrorMessage(error));
+      const foodErrorMessage = toErrorMessage(
+        error,
+        t('food.errors.analyzeFailed', { defaultValue: 'Unable to analyze this image.' })
+      );
+      posthog?.capture('Food Analysis Failed', {
+        error_message: foodErrorMessage,
+      });
+      setCaptureError(foodErrorMessage);
       hapticError();
     }
-  }, [analyzeFoodMutation, capturedImageUri, handleOpenPaywall, isAnalyzing, isDailyFoodLimitReached, router, setPendingAnalysis]);
+  }, [analyzeFoodMutation, capturedImageUri, handleOpenPaywall, i18n.language, isAnalyzing, isDailyFoodLimitReached, posthog, router, setPendingAnalysis, t]);
 
   useEffect(() => {
     if (hasHydratedFromPendingRef.current) return;
@@ -244,24 +287,28 @@ export default function FoodIndexScreen() {
       {!hasPermission ? (
         <View style={styles.centeredState}>
           <Text selectable style={styles.title}>
-            Camera Access Needed
+            {t('scan.cameraAccessNeeded', { defaultValue: 'Camera Access Needed' })}
           </Text>
           <Text selectable style={styles.subtitle}>
-            Allow camera access to capture your food and estimate sodium.
+            {t('food.cameraPermissionSubtitle', {
+              defaultValue: 'Allow camera access to capture your food and estimate sodium.',
+            })}
           </Text>
           <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={requestPermission}>
             <Text selectable style={styles.primaryButtonLabel}>
-              Grant Access
+              {t('scan.grantAccess', { defaultValue: 'Grant Access' })}
             </Text>
           </Pressable>
         </View>
       ) : !device ? (
         <View style={styles.centeredState}>
           <Text selectable style={styles.title}>
-            Camera Unavailable
+            {t('scan.cameraUnavailable', { defaultValue: 'Camera Unavailable' })}
           </Text>
           <Text selectable style={styles.subtitle}>
-            No compatible back camera was found on this device.
+            {t('food.backCameraUnavailable', {
+              defaultValue: 'No compatible back camera was found on this device.',
+            })}
           </Text>
         </View>
       ) : (
@@ -311,7 +358,7 @@ export default function FoodIndexScreen() {
                   onPress={isBusy ? undefined : handleRetake}
                 >
                   <Text selectable style={styles.secondaryButtonLabel}>
-                    Retake
+                    {t('common.retake', { defaultValue: 'Retake' })}
                   </Text>
                 </PressableScale>
                 <PressableScale
@@ -322,7 +369,9 @@ export default function FoodIndexScreen() {
                     <ActivityIndicator size="small" color={Theme.colors.foundation} />
                   ) : (
                     <Text selectable style={styles.primaryButtonLabel}>
-                      {isDailyFoodLimitReached ? 'Upgrade' : 'Analyze'}
+                      {isDailyFoodLimitReached
+                        ? t('common.upgrade', { defaultValue: 'Upgrade' })
+                        : t('common.analyze', { defaultValue: 'Analyze' })}
                     </Text>
                   )}
                 </PressableScale>
@@ -353,11 +402,13 @@ export default function FoodIndexScreen() {
           {isDailyFoodLimitReached ? (
             <View style={styles.limitBanner}>
               <Text selectable style={styles.limitBannerText}>
-                Daily free food analyses used. Upgrade to Pro for unlimited analyses.
+                {t('food.dailyLimitBanner', {
+                  defaultValue: 'Daily free food analyses used. Upgrade to Pro for unlimited analyses.',
+                })}
               </Text>
               <PressableScale style={styles.limitBannerButton} onPress={handleOpenPaywall}>
                 <Text selectable style={styles.limitBannerButtonLabel}>
-                  Unlock Pro
+                  {t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
                 </Text>
               </PressableScale>
             </View>

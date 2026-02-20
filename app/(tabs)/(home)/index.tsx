@@ -33,6 +33,7 @@ import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlatformColor, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -84,24 +85,24 @@ function buildRecentDates(days: number): string[] {
   return items;
 }
 
-function dayLetterFromDate(date: string): string {
-  const label = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(new Date(date));
+function dayLetterFromDate(date: string, locale: string): string {
+  const label = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(date));
   return label.slice(0, 1).toUpperCase();
 }
 
-function formatFoodLogTime(createdAt: string | null): string {
-  if (!createdAt) return 'Unknown time';
+function formatFoodLogTime(createdAt: string | null, locale: string, unknownTimeLabel: string): string {
+  if (!createdAt) return unknownTimeLabel;
   const normalized = createdAt.includes('T') ? createdAt : createdAt.replace(' ', 'T');
   const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return 'Unknown time';
-  return new Intl.DateTimeFormat('en-US', {
+  if (Number.isNaN(parsed.getTime())) return unknownTimeLabel;
+  return new Intl.DateTimeFormat(locale, {
     hour: 'numeric',
     minute: '2-digit',
   }).format(parsed);
 }
 
-function formatRiskLabel(value: string | null): string {
-  if (!value) return 'Unknown';
+function formatRiskLabel(value: string | null, unknownLabel: string): string {
+  if (!value) return unknownLabel;
   return value
     .replace(/[_-]/g, ' ')
     .toLowerCase()
@@ -115,18 +116,23 @@ function shiftDate(dateKey: string, offsetDays: number): string {
   return toDailyDate(parsed);
 }
 
-function formatScanLoggedTime(value: string | null): string {
-  if (!value) return 'Unknown time';
+function formatScanLoggedTime(
+  value: string | null,
+  locale: string,
+  unknownTimeLabel: string,
+  todayLabel: string
+): string {
+  if (!value) return unknownTimeLabel;
   const normalized = value.includes('T') ? value : value.replace(' ', 'T');
   const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return 'Unknown time';
+  if (Number.isNaN(parsed.getTime())) return unknownTimeLabel;
   const dayKey = toDailyDate(parsed);
   const todayKey = toDailyDate(new Date());
   const dayLabel =
     dayKey === todayKey
-      ? 'Today'
-      : new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(parsed);
-  const timeLabel = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(parsed);
+      ? todayLabel
+      : new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(parsed);
+  const timeLabel = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(parsed);
   return `${dayLabel}, ${timeLabel}`;
 }
 
@@ -338,6 +344,7 @@ const RecentFoodListItem = React.memo(function RecentFoodListItem({
   food,
   showSeparator,
 }: RecentFoodListItemProps) {
+  const { t, i18n } = useTranslation();
   return (
     <React.Fragment>
       {showSeparator ? <View style={styles.recentFoodSeparator} /> : null}
@@ -363,7 +370,11 @@ const RecentFoodListItem = React.memo(function RecentFoodListItem({
                 </Text>
                 <View style={styles.recentFoodHeaderRight}>
                   <Text selectable style={styles.recentFoodTime}>
-                    {formatFoodLogTime(food.createdAt)}
+                    {formatFoodLogTime(
+                      food.createdAt,
+                      i18n.language,
+                      t('common.unknownTime', { defaultValue: 'Unknown time' })
+                    )}
                   </Text>
                   <Ionicons name="chevron-forward" size={17} color={PlatformColor('tertiaryLabel')} />
                 </View>
@@ -373,7 +384,10 @@ const RecentFoodListItem = React.memo(function RecentFoodListItem({
                   {food.sodiumEstimateMg.toLocaleString()} mg
                 </Text>
                 <Text selectable style={styles.recentFoodRisk}>
-                  {formatRiskLabel(food.bloatRiskLevel)}
+                  {formatRiskLabel(
+                    food.bloatRiskLevel,
+                    t('common.unknown', { defaultValue: 'Unknown' })
+                  )}
                 </Text>
               </View>
             </View>
@@ -391,6 +405,7 @@ const RecentFoodListItem = React.memo(function RecentFoodListItem({
 
 export default function HomeIndex() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const { isPro } = useSubscription();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -425,25 +440,29 @@ export default function HomeIndex() {
   const showHydrationGoalToast = useCallback(() => {
     hapticSuccess();
     Burnt.toast({
-      title: 'Hydration Goal Reached',
-      message: 'You hit your daily water target.',
+      title: t('home.hydrationGoalReachedTitle', { defaultValue: 'Hydration Goal Reached' }),
+      message: t('home.hydrationGoalReachedMessage', {
+        defaultValue: 'You hit your daily water target.',
+      }),
       preset: 'done',
       haptic: 'none',
       from: 'bottom',
       duration: 3,
     });
-  }, []);
+  }, [t]);
   const showActionPlanToast = useCallback(() => {
     hapticSuccess();
     Burnt.toast({
-      title: 'Action Plan Complete',
-      message: 'All daily action items are done.',
+      title: t('home.actionPlanCompleteTitle', { defaultValue: 'Action Plan Complete' }),
+      message: t('home.actionPlanCompleteMessage', {
+        defaultValue: 'All daily action items are done.',
+      }),
       preset: 'done',
       haptic: 'none',
       from: 'bottom',
       duration: 3,
     });
-  }, []);
+  }, [t]);
   const handleOpenChecklistUpgrade = useCallback(() => {
     hapticSelection();
     router.push(PAYWALL_ROUTE as never);
@@ -481,11 +500,11 @@ export default function HomeIndex() {
 
         return {
           date,
-          dayLetter: dayLetterFromDate(date),
+          dayLetter: dayLetterFromDate(date, i18n.language),
           progressPercent: progress,
         };
       }),
-    [dayQueries, recentDates]
+    [dayQueries, i18n.language, recentDates]
   );
   const selectedDayIndex = useMemo(
     () => recentDates.findIndex((date) => date === selectedDate),
@@ -553,15 +572,25 @@ export default function HomeIndex() {
     [sodiumGoalMg, sodiumMg]
   );
   const scanLoggedTimeLabel = useMemo(
-    () => formatScanLoggedTime(selectedDayScanSummary?.createdAt ?? null),
-    [selectedDayScanSummary?.createdAt]
+    () =>
+      formatScanLoggedTime(
+        selectedDayScanSummary?.createdAt ?? null,
+        i18n.language,
+        t('common.unknownTime', { defaultValue: 'Unknown time' }),
+        t('common.today', { defaultValue: 'Today' })
+      ),
+    [i18n.language, selectedDayScanSummary?.createdAt, t]
   );
   const scanDeltaLabel = useMemo(() => {
     const delta = selectedDayScanSummary?.deltaVsYesterday;
     if (delta === null || delta === undefined) return null;
     const sign = delta >= 0 ? '+' : '-';
-    return `${sign}${Math.abs(Math.round(delta))} vs yesterday`;
-  }, [selectedDayScanSummary?.deltaVsYesterday]);
+    return t('home.scanDeltaVsYesterday', {
+      defaultValue: `${sign}${Math.abs(Math.round(delta))} vs yesterday`,
+      sign,
+      value: Math.abs(Math.round(delta)),
+    });
+  }, [selectedDayScanSummary?.deltaVsYesterday, t]);
   const scanFeedback = selectedDayScanSummary?.feedback?.trim() ?? '';
   const scanFocusAreas = useMemo(
     () => parseFlaggedAreas(selectedDayScanSummary?.flaggedAreas ?? null).map(formatFocusAreaTag),
@@ -722,8 +751,10 @@ export default function HomeIndex() {
         {hasScanForSelectedDay ? (
           <View style={styles.scanSummaryContent}>
             <View style={styles.scanMetaTopRow}>
-              <Text selectable style={styles.scanMetaTopPrimary}>
-                {selectedDayScanSummaryQuery.isLoading ? 'Loading scan...' : scanLoggedTimeLabel}
+                <Text selectable style={styles.scanMetaTopPrimary}>
+                {selectedDayScanSummaryQuery.isLoading
+                  ? t('home.loadingScan', { defaultValue: 'Loading scan...' })
+                  : scanLoggedTimeLabel}
               </Text>
               <Text
                 selectable
@@ -736,7 +767,8 @@ export default function HomeIndex() {
                     : null,
                 ]}
               >
-                {scanDeltaLabel ?? 'No previous baseline'}
+                {scanDeltaLabel ??
+                  t('home.noPreviousBaseline', { defaultValue: 'No previous baseline' })}
               </Text>
             </View>
 
@@ -758,13 +790,16 @@ export default function HomeIndex() {
                   score={selectedDayScanSummary?.score ?? 0}
                 />
                 <Text selectable style={styles.scanScoreCaption}>
-                  Bloat score
+                  {t('home.bloatScore', { defaultValue: 'Bloat score' })}
                 </Text>
               </View>
             </View>
 
             <Text selectable numberOfLines={2} style={styles.scanFeedbackText}>
-              {scanFeedback || 'No analysis summary available for this scan yet.'}
+              {scanFeedback ||
+                t('home.noScanSummaryYet', {
+                  defaultValue: 'No analysis summary available for this scan yet.',
+                })}
             </Text>
 
             {visibleScanFocusAreas.length > 0 ? (
@@ -789,7 +824,7 @@ export default function HomeIndex() {
             <View style={styles.scanActionRow}>
               <IOSHost style={styles.scanActionButtonHost} matchContents useViewportSizeMeasurement>
                 <IOSButton
-                  label="View Report"
+                  label={t('scan.viewReport', { defaultValue: 'View Report' })}
                   systemImage="doc.text.magnifyingglass"
                   onPress={handleOpenScanResult}
                   modifiers={[
@@ -801,7 +836,7 @@ export default function HomeIndex() {
               </IOSHost>
               <IOSHost style={styles.scanActionButtonHost} matchContents useViewportSizeMeasurement>
                 <IOSButton
-                  label="Retake"
+                  label={t('common.retake', { defaultValue: 'Retake' })}
                   systemImage="arrow.trianglehead.clockwise"
                   onPress={handleOpenScan}
                   modifiers={[
@@ -819,19 +854,21 @@ export default function HomeIndex() {
               <Ionicons name="scan" size={44} color="rgba(15, 23, 42, 0.45)" />
             </View>
             <Text selectable style={styles.scanEmptyTitle}>
-              Daily Morning Scan
+              {t('home.dailyMorningScan', { defaultValue: 'Daily Morning Scan' })}
             </Text>
             <Text selectable style={styles.scanEmptyDescription}>
-              No scan yet for this day. Scan your face to start your morning routine.
+              {t('home.noScanForDay', {
+                defaultValue: 'No scan yet for this day. Scan your face to start your morning routine.',
+              })}
             </Text>
             <View style={styles.scanEmptyStatusPill}>
               <Text selectable style={styles.scanEmptyStatusText}>
-                NO SCAN YET
+                {t('home.noScanYet', { defaultValue: 'No scan yet' }).toUpperCase()}
               </Text>
             </View>
             <IOSHost style={styles.scanButtonHost} matchContents useViewportSizeMeasurement>
               <IOSButton
-                label="Start Scan"
+                label={t('scan.startScan', { defaultValue: 'Start Scan' })}
                 systemImage="camera.viewfinder"
                 onPress={handleOpenScan}
                 modifiers={[
@@ -851,19 +888,21 @@ export default function HomeIndex() {
         <View style={styles.checklistLockedCard}>
           <View style={styles.checklistLockedHeader}>
             <Text selectable style={styles.checklistLockedTitle}>
-              AI Action Plan
+              {t('home.aiActionPlan', { defaultValue: 'AI Action Plan' })}
             </Text>
             <Text selectable style={styles.checklistLockedBadge}>
               PRO
             </Text>
           </View>
           <Text selectable style={styles.checklistLockedText}>
-            Personalized daily action steps are available on Pro.
+            {t('home.checklistProOnly', {
+              defaultValue: 'Personalized daily action steps are available on Pro.',
+            })}
           </Text>
           {process.env.EXPO_OS === 'ios' ? (
             <IOSHost matchContents useViewportSizeMeasurement>
               <IOSButton
-                label="Unlock Pro"
+                label={t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
                 systemImage="sparkles"
                 onPress={handleOpenChecklistUpgrade}
                 modifiers={[
@@ -876,7 +915,7 @@ export default function HomeIndex() {
           ) : (
             <Pressable onPress={handleOpenChecklistUpgrade} style={styles.checklistLockedButtonFallback}>
               <Text selectable style={styles.checklistLockedButtonFallbackLabel}>
-                Unlock Pro
+                {t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
               </Text>
             </Pressable>
           )}
@@ -889,11 +928,11 @@ export default function HomeIndex() {
             <View style={styles.metricHeaderLeft}>
               <Ionicons name="water" size={18} color={PlatformColor('tertiaryLabel')} />
               <Text selectable style={styles.metricHeaderLabel}>
-                HYDRATION
+                {t('home.hydration', { defaultValue: 'Hydration' }).toUpperCase()}
               </Text>
             </View>
             <Text selectable style={styles.stepHint}>
-              {WATER_STEP_ML}ml step
+              {t('home.stepMl', { defaultValue: `${WATER_STEP_ML}ml step`, value: WATER_STEP_ML })}
             </Text>
           </View>
 
@@ -915,7 +954,10 @@ export default function HomeIndex() {
             colorStops={HYDRATION_COLOR_STOPS}
           />
           <Text selectable style={styles.metricTargetLine}>
-            Target {waterGoalMl.toLocaleString()} ml
+            {t('home.targetMl', {
+              defaultValue: `Target ${waterGoalMl.toLocaleString()} ml`,
+              value: waterGoalMl.toLocaleString(),
+            })}
           </Text>
         </View>
 
@@ -924,12 +966,12 @@ export default function HomeIndex() {
             <View style={styles.metricHeaderLeft}>
               <Ionicons name="flash" size={18} color={PlatformColor('tertiaryLabel')} />
               <Text selectable style={styles.metricHeaderLabel}>
-                SODIUM
+                {t('home.sodium', { defaultValue: 'Sodium' }).toUpperCase()}
               </Text>
             </View>
             <IOSHost style={styles.metricLogFoodHost} matchContents useViewportSizeMeasurement>
               <IOSButton
-                label="Log Food"
+                label={t('food.logFood', { defaultValue: 'Log Food' })}
                 systemImage="fork.knife"
                 onPress={handleLogFood}
                 modifiers={[
@@ -955,7 +997,7 @@ export default function HomeIndex() {
       <View style={styles.recentFoodCardsSection}>
         <View style={styles.recentFoodsHeader}>
           <Text selectable style={styles.recentFoodsTitle}>
-            Last 3 logged foods
+            {t('home.lastThreeFoods', { defaultValue: 'Last 3 logged foods' })}
           </Text>
           <Link href="/(food)/all" asChild>
             <Pressable onPress={hapticSelection} style={styles.recentFoodsHeaderAction}>
@@ -966,12 +1008,12 @@ export default function HomeIndex() {
         {recentFoods.length === 0 ? (
           <View style={styles.recentFoodCardEmpty}>
             <Text selectable style={styles.recentFoodsEmpty}>
-              No foods logged for this day.
+              {t('home.noFoodsLogged', { defaultValue: 'No foods logged for this day.' })}
             </Text>
             {process.env.EXPO_OS === 'ios' ? (
               <IOSHost matchContents useViewportSizeMeasurement>
                 <IOSButton
-                  label="Log Food"
+                  label={t('food.logFood', { defaultValue: 'Log Food' })}
                   systemImage="fork.knife"
                   onPress={handleLogFood}
                   modifiers={[
@@ -984,7 +1026,7 @@ export default function HomeIndex() {
             ) : (
               <Pressable onPress={handleLogFood} style={styles.recentFoodEmptyActionFallback}>
                 <Text selectable style={styles.recentFoodEmptyActionFallbackLabel}>
-                  Log Food
+                  {t('food.logFood', { defaultValue: 'Log Food' })}
                 </Text>
               </Pressable>
             )}

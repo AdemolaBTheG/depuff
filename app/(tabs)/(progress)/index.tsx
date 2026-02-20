@@ -13,6 +13,7 @@ import { desc, sql } from 'drizzle-orm';
 import { Link, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 const RANGE_OPTIONS = [7, 30, 90] as const;
 
@@ -98,13 +99,13 @@ function average(values: number[]): number | null {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-function formatAxisLabel(dateKey: string, range: RangeDays): string {
+function formatAxisLabel(dateKey: string, range: RangeDays, locale: string): string {
   const parsed = new Date(`${dateKey}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return dateKey;
   if (range === 7) {
-    return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(parsed);
+    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(parsed);
   }
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(parsed);
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(parsed);
 }
 
 function normalizeRiskLevel(value: string | null): 'safe' | 'caution' | 'danger' | 'unknown' {
@@ -122,20 +123,23 @@ function formatPercent(count: number, total: number): string {
   return `${Math.round((count / total) * 100)}%`;
 }
 
-function formatCompactNumber(value: number): string {
-  return new Intl.NumberFormat('en-US', {
+function formatCompactNumber(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     notation: 'compact',
     maximumFractionDigits: 1,
   }).format(value);
 }
 
-function formatRiskLabel(value: 'safe' | 'caution' | 'danger' | 'unknown'): string {
-  if (value === 'unknown') return 'Unknown';
+function formatRiskLabel(
+  value: 'safe' | 'caution' | 'danger' | 'unknown',
+  unknownLabel = 'Unknown'
+): string {
+  if (value === 'unknown') return unknownLabel;
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function normalizeFoodKey(value: string | null): string {
-  const cleaned = (value ?? 'Unnamed food').trim();
+function normalizeFoodKey(value: string | null, fallbackName = 'Unnamed food'): string {
+  const cleaned = (value ?? fallbackName).trim();
   if (!cleaned) return 'unnamed food';
   return cleaned.toLowerCase().replace(/\s+/g, ' ');
 }
@@ -156,7 +160,7 @@ function resolveDominantRisk(counts: Record<'safe' | 'caution' | 'danger' | 'unk
   return best;
 }
 
-async function fetchBloatTrend(range: RangeDays): Promise<BloatTrendStats> {
+async function fetchBloatTrend(range: RangeDays, locale: string): Promise<BloatTrendStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -205,7 +209,7 @@ async function fetchBloatTrend(range: RangeDays): Promise<BloatTrendStats> {
   const points: ChartDataPoint[] = currentKeys
     .filter((key) => dayAverages.has(key))
     .map((key) => ({
-      x: formatAxisLabel(key, range),
+      x: formatAxisLabel(key, range, locale),
       y: Number(dayAverages.get(key)?.toFixed(1) ?? 0),
     }));
 
@@ -218,7 +222,11 @@ async function fetchBloatTrend(range: RangeDays): Promise<BloatTrendStats> {
   };
 }
 
-async function fetchSodiumTrend(range: RangeDays, sodiumGoalMg: number): Promise<SodiumTrendStats> {
+async function fetchSodiumTrend(
+  range: RangeDays,
+  sodiumGoalMg: number,
+  locale: string
+): Promise<SodiumTrendStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -246,7 +254,7 @@ async function fetchSodiumTrend(range: RangeDays, sodiumGoalMg: number): Promise
   const loggedDays = values.filter((value) => value > 0).length;
 
   const points: ChartDataPoint[] = currentKeys.map((key) => ({
-    x: formatAxisLabel(key, range),
+    x: formatAxisLabel(key, range, locale),
     y: Math.round(sodiumByDay.get(key) ?? 0),
   }));
 
@@ -259,7 +267,11 @@ async function fetchSodiumTrend(range: RangeDays, sodiumGoalMg: number): Promise
   };
 }
 
-async function fetchHydrationTrend(range: RangeDays, waterGoalMl: number): Promise<HydrationTrendStats> {
+async function fetchHydrationTrend(
+  range: RangeDays,
+  waterGoalMl: number,
+  locale: string
+): Promise<HydrationTrendStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -286,7 +298,7 @@ async function fetchHydrationTrend(range: RangeDays, waterGoalMl: number): Promi
   const loggedDays = values.filter((value) => value > 0).length;
 
   const points: ChartDataPoint[] = currentKeys.map((key) => ({
-    x: formatAxisLabel(key, range),
+    x: formatAxisLabel(key, range, locale),
     y: Math.round(hydrationByDay.get(key) ?? 0),
   }));
 
@@ -348,7 +360,7 @@ async function fetchRiskMix(range: RangeDays): Promise<RiskMixStats> {
   };
 }
 
-async function fetchTopFoods(range: RangeDays): Promise<TopFoodsStats> {
+async function fetchTopFoods(range: RangeDays, unnamedFoodLabel: string): Promise<TopFoodsStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -382,8 +394,8 @@ async function fetchTopFoods(range: RangeDays): Promise<TopFoodsStats> {
     if (!keySet.has(row.logDate)) continue;
     totalMeals += 1;
 
-    const key = normalizeFoodKey(row.foodName);
-    const displayName = (row.foodName ?? 'Unnamed food').trim() || 'Unnamed food';
+    const key = normalizeFoodKey(row.foodName, unnamedFoodLabel);
+    const displayName = (row.foodName ?? unnamedFoodLabel).trim() || unnamedFoodLabel;
     const risk = normalizeRiskLevel(row.bloatRiskLevel);
     const sodium = row.sodiumEstimateMg ?? 0;
 
@@ -417,14 +429,9 @@ async function fetchTopFoods(range: RangeDays): Promise<TopFoodsStats> {
   return { items, totalMeals };
 }
 
-function formatDelta(value: number | null): string {
-  if (value === null) return 'No previous period comparison yet';
-  const rounded = Math.abs(value).toFixed(1);
-  return `${value > 0 ? '+' : '-'}${rounded}% vs previous period`;
-}
-
 export default function ProgressIndex() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const { isPro } = useSubscription();
   const db = useDbStore((state) => state.db);
   const { waterGoalMl, sodiumGoalMg } = useSettingsStore();
@@ -458,18 +465,18 @@ export default function ProgressIndex() {
 
   const trendQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['progress-bloat-trend', range],
-    queryFn: () => fetchBloatTrend(range),
+    queryKey: ['progress-bloat-trend', range, i18n.language],
+    queryFn: () => fetchBloatTrend(range, i18n.language),
   });
   const sodiumQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['progress-sodium-trend', range, sodiumGoalMg],
-    queryFn: () => fetchSodiumTrend(range, sodiumGoalMg),
+    queryKey: ['progress-sodium-trend', range, sodiumGoalMg, i18n.language],
+    queryFn: () => fetchSodiumTrend(range, sodiumGoalMg, i18n.language),
   });
   const hydrationQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['progress-hydration-trend', range, waterGoalMl],
-    queryFn: () => fetchHydrationTrend(range, waterGoalMl),
+    queryKey: ['progress-hydration-trend', range, waterGoalMl, i18n.language],
+    queryFn: () => fetchHydrationTrend(range, waterGoalMl, i18n.language),
   });
   const riskMixQuery = useQuery({
     enabled: Boolean(db) && isPro,
@@ -478,8 +485,9 @@ export default function ProgressIndex() {
   });
   const topFoodsQuery = useQuery({
     enabled: Boolean(db) && isPro,
-    queryKey: ['progress-top-foods', range],
-    queryFn: () => fetchTopFoods(range),
+    queryKey: ['progress-top-foods', range, i18n.language],
+    queryFn: () =>
+      fetchTopFoods(range, t('food.unnamedFood', { defaultValue: 'Unnamed food' })),
   });
 
   const trend = trendQuery.data;
@@ -487,7 +495,20 @@ export default function ProgressIndex() {
     trend?.averageCurrent !== null && trend?.averageCurrent !== undefined
       ? Math.round(trend.averageCurrent).toString()
       : '--';
-  const deltaLabel = formatDelta(trend?.deltaPercent ?? null);
+  const deltaLabel = useMemo(() => {
+    const value = trend?.deltaPercent ?? null;
+    if (value === null) {
+      return t('progress.noPreviousComparison', {
+        defaultValue: 'No previous period comparison yet',
+      });
+    }
+    const rounded = Math.abs(value).toFixed(1);
+    return t('progress.deltaVsPrevious', {
+      defaultValue: `${value > 0 ? '+' : '-'}${rounded}% vs previous period`,
+      sign: value > 0 ? '+' : '-',
+      value: rounded,
+    });
+  }, [t, trend?.deltaPercent]);
   const deltaPositive = (trend?.deltaPercent ?? 0) > 0;
   const referenceLines =
     trend?.averageCurrent !== null && trend?.averageCurrent !== undefined
@@ -534,7 +555,7 @@ export default function ProgressIndex() {
   }, [riskMix]);
   const topFoods = topFoodsQuery.data;
   const avgSodiumLabel =
-    sodium && sodium.loggedDays > 0 ? formatCompactNumber(Math.round(sodium.averageMg)) : '--';
+    sodium && sodium.loggedDays > 0 ? formatCompactNumber(Math.round(sodium.averageMg), i18n.language) : '--';
   const hydrationHitRateLabel =
     hydration ? `${Math.round((hydration.daysHitGoal / Math.max(range, 1)) * 100)}%` : '--';
 
@@ -605,11 +626,11 @@ export default function ProgressIndex() {
       <View style={styles.globalRangeRow}>
         <View style={styles.globalRangeTitleRow}>
           <Text selectable style={styles.globalRangeLabel}>
-            Range
+            {t('progress.range', { defaultValue: 'Range' })}
           </Text>
           {!isPro ? (
             <Text selectable style={styles.globalRangeLimitLabel}>
-              Free: 7D
+              {t('progress.freeLimit7d', { defaultValue: 'Free: 7D' })}
             </Text>
           ) : null}
         </View>
@@ -658,7 +679,7 @@ export default function ProgressIndex() {
                 <Ionicons name="analytics" size={12} color="rgba(14, 116, 144, 1)" />
               </View>
               <Text selectable allowFontScaling={false} numberOfLines={1} ellipsizeMode="tail" style={styles.kpiLabel}>
-                Bloat
+                {t('progress.kpi.bloat', { defaultValue: 'Bloat' })}
               </Text>
             </View>
             <Text
@@ -680,7 +701,7 @@ export default function ProgressIndex() {
                 <Ionicons name="flash" size={12} color="rgba(194, 65, 12, 1)" />
               </View>
               <Text selectable allowFontScaling={false} numberOfLines={1} ellipsizeMode="tail" style={styles.kpiLabel}>
-                Sodium
+                {t('progress.kpi.sodium', { defaultValue: 'Sodium' })}
               </Text>
             </View>
             <Text
@@ -702,7 +723,7 @@ export default function ProgressIndex() {
                 <Ionicons name="water" size={12} color="rgba(30, 64, 175, 1)" />
               </View>
               <Text selectable allowFontScaling={false} numberOfLines={1} ellipsizeMode="tail" style={styles.kpiLabel}>
-                Hydration
+                {t('progress.kpi.hydration', { defaultValue: 'Hydration' })}
               </Text>
             </View>
             <Text
@@ -721,7 +742,7 @@ export default function ProgressIndex() {
 
       <View style={styles.card}>
         <Text selectable style={styles.cardTitle}>
-          Bloat Trend
+          {t('progress.bloatTrend', { defaultValue: 'Bloat Trend' })}
         </Text>
 
         <View style={styles.metricRow}>
@@ -730,7 +751,7 @@ export default function ProgressIndex() {
               {averageCurrentLabel}
             </Text>
             <Text selectable style={styles.metricSuffix}>
-              avg
+              {t('progress.avgShort', { defaultValue: 'avg' })}
             </Text>
           </View>
           <View style={styles.metricMetaStack}>
@@ -738,7 +759,10 @@ export default function ProgressIndex() {
               {deltaLabel}
             </Text>
             <Text selectable style={styles.sampleHint}>
-              {trend?.sampleCount ?? 0} scan day{trend?.sampleCount === 1 ? '' : 's'}
+              {t('progress.scanDays', {
+                defaultValue: `${trend?.sampleCount ?? 0} scan day${trend?.sampleCount === 1 ? '' : 's'}`,
+                count: trend?.sampleCount ?? 0,
+              })}
             </Text>
           </View>
         </View>
@@ -749,7 +773,7 @@ export default function ProgressIndex() {
           ) : (trend?.points.length ?? 0) < 2 ? (
             <View style={styles.emptyChartState}>
               <Text selectable style={styles.emptyChartText}>
-                Need 2 scan days for trend.
+                {t('progress.needTwoScanDays', { defaultValue: 'Need 2 scan days for trend.' })}
               </Text>
             </View>
           ) : process.env.EXPO_OS === 'ios' ? (
@@ -792,13 +816,13 @@ export default function ProgressIndex() {
 
       <View style={styles.card}>
         <Text selectable style={styles.cardTitle}>
-          Daily Sodium
+          {t('progress.dailySodium', { defaultValue: 'Daily Sodium' })}
         </Text>
 
         <View style={styles.statChipsRow}>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Avg
+              {t('progress.avg', { defaultValue: 'Avg' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {Math.round(sodium?.averageMg ?? 0).toLocaleString()} mg
@@ -806,7 +830,7 @@ export default function ProgressIndex() {
           </View>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Over Goal
+              {t('progress.overGoal', { defaultValue: 'Over Goal' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {sodium?.daysOverGoal ?? 0}d
@@ -814,7 +838,7 @@ export default function ProgressIndex() {
           </View>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Max
+              {t('progress.max', { defaultValue: 'Max' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {Math.round(sodium?.maxMg ?? 0).toLocaleString()} mg
@@ -822,7 +846,10 @@ export default function ProgressIndex() {
           </View>
         </View>
         <Text selectable style={styles.sampleHint}>
-          {sodium?.loggedDays ?? 0} logged day{sodium?.loggedDays === 1 ? '' : 's'}
+          {t('progress.loggedDays', {
+            defaultValue: `${sodium?.loggedDays ?? 0} logged day${sodium?.loggedDays === 1 ? '' : 's'}`,
+            count: sodium?.loggedDays ?? 0,
+          })}
         </Text>
 
         <View style={styles.chartContainer}>
@@ -831,7 +858,7 @@ export default function ProgressIndex() {
           ) : (sodium?.loggedDays ?? 0) === 0 ? (
             <View style={styles.emptyChartState}>
               <Text selectable style={styles.emptyChartText}>
-                No sodium logs for this range.
+                {t('progress.noSodiumLogs', { defaultValue: 'No sodium logs for this range.' })}
               </Text>
             </View>
           ) : process.env.EXPO_OS === 'ios' ? (
@@ -872,13 +899,13 @@ export default function ProgressIndex() {
 
       <View style={styles.card}>
         <Text selectable style={styles.cardTitle}>
-          Hydration Adherence
+          {t('progress.hydrationAdherence', { defaultValue: 'Hydration Adherence' })}
         </Text>
 
         <View style={styles.statChipsRow}>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Avg
+              {t('progress.avg', { defaultValue: 'Avg' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {Math.round(hydration?.averageMl ?? 0).toLocaleString()} ml
@@ -886,7 +913,7 @@ export default function ProgressIndex() {
           </View>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Hit Goal
+              {t('progress.hitGoal', { defaultValue: 'Hit Goal' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {hydration?.daysHitGoal ?? 0}d
@@ -894,7 +921,7 @@ export default function ProgressIndex() {
           </View>
           <View style={styles.statChip}>
             <Text selectable style={styles.statChipLabel}>
-              Max
+              {t('progress.max', { defaultValue: 'Max' })}
             </Text>
             <Text selectable numberOfLines={1} style={styles.statChipValue}>
               {Math.round(hydration?.maxMl ?? 0).toLocaleString()} ml
@@ -902,7 +929,10 @@ export default function ProgressIndex() {
           </View>
         </View>
         <Text selectable style={styles.sampleHint}>
-          {hydration?.loggedDays ?? 0} logged day{hydration?.loggedDays === 1 ? '' : 's'}
+          {t('progress.loggedDays', {
+            defaultValue: `${hydration?.loggedDays ?? 0} logged day${hydration?.loggedDays === 1 ? '' : 's'}`,
+            count: hydration?.loggedDays ?? 0,
+          })}
         </Text>
 
         <View style={styles.chartContainer}>
@@ -911,7 +941,9 @@ export default function ProgressIndex() {
           ) : (hydration?.loggedDays ?? 0) === 0 ? (
             <View style={styles.emptyChartState}>
               <Text selectable style={styles.emptyChartText}>
-                No hydration logs for this range.
+                {t('progress.noHydrationLogs', {
+                  defaultValue: 'No hydration logs for this range.',
+                })}
               </Text>
             </View>
           ) : process.env.EXPO_OS === 'ios' ? (
@@ -953,13 +985,13 @@ export default function ProgressIndex() {
       {isPro ? (
         <View style={styles.card}>
           <Text selectable style={styles.cardTitle}>
-            Risk Mix
+            {t('progress.riskMix', { defaultValue: 'Risk Mix' })}
           </Text>
 
           <View style={styles.statChipsRow}>
             <View style={styles.statChip}>
               <Text selectable style={styles.statChipLabel}>
-                Safe
+                {t('progress.safe', { defaultValue: 'Safe' })}
               </Text>
               <Text selectable numberOfLines={1} style={styles.statChipValue}>
                 {formatPercent(riskMix?.safeCount ?? 0, riskMix?.totalMeals ?? 0)}
@@ -967,7 +999,7 @@ export default function ProgressIndex() {
             </View>
             <View style={styles.statChip}>
               <Text selectable style={styles.statChipLabel}>
-                Caution
+                {t('progress.caution', { defaultValue: 'Caution' })}
               </Text>
               <Text selectable numberOfLines={1} style={styles.statChipValue}>
                 {formatPercent(riskMix?.cautionCount ?? 0, riskMix?.totalMeals ?? 0)}
@@ -975,7 +1007,7 @@ export default function ProgressIndex() {
             </View>
             <View style={styles.statChip}>
               <Text selectable style={styles.statChipLabel}>
-                Danger
+                {t('progress.danger', { defaultValue: 'Danger' })}
               </Text>
               <Text selectable numberOfLines={1} style={styles.statChipValue}>
                 {formatPercent(riskMix?.dangerCount ?? 0, riskMix?.totalMeals ?? 0)}
@@ -983,8 +1015,16 @@ export default function ProgressIndex() {
             </View>
           </View>
           <Text selectable style={styles.sampleHint}>
-            {riskMix?.totalMeals ?? 0} logged meal{riskMix?.totalMeals === 1 ? '' : 's'}
-            {(riskMix?.unknownCount ?? 0) > 0 ? ` (${riskMix?.unknownCount} unknown)` : ''}
+            {t('progress.loggedMeals', {
+              defaultValue: `${riskMix?.totalMeals ?? 0} logged meal${riskMix?.totalMeals === 1 ? '' : 's'}`,
+              count: riskMix?.totalMeals ?? 0,
+            })}
+            {(riskMix?.unknownCount ?? 0) > 0
+              ? t('progress.unknownCount', {
+                  defaultValue: ` (${riskMix?.unknownCount} unknown)`,
+                  count: riskMix?.unknownCount ?? 0,
+                })
+              : ''}
           </Text>
 
           <View style={styles.chartContainer}>
@@ -993,7 +1033,7 @@ export default function ProgressIndex() {
             ) : (riskMix?.totalMeals ?? 0) === 0 ? (
               <View style={styles.emptyChartState}>
                 <Text selectable style={styles.emptyChartText}>
-                  No risk data for this range.
+                  {t('progress.noRiskData', { defaultValue: 'No risk data for this range.' })}
                 </Text>
               </View>
             ) : process.env.EXPO_OS === 'ios' ? (
@@ -1029,18 +1069,20 @@ export default function ProgressIndex() {
         <View style={[styles.card, styles.lockedInsightCard]}>
           <View style={styles.lockedInsightHeader}>
             <Text selectable style={styles.cardTitle}>
-              Risk Mix
+              {t('progress.riskMix', { defaultValue: 'Risk Mix' })}
             </Text>
             <Text selectable style={styles.lockedInsightBadge}>
               PRO
             </Text>
           </View>
           <Text selectable style={styles.lockedInsightText}>
-            Unlock risk distribution trends over longer windows.
+            {t('progress.unlockRiskMixInsight', {
+              defaultValue: 'Unlock risk distribution trends over longer windows.',
+            })}
           </Text>
           <Pressable style={styles.lockedInsightButton} onPress={handleOpenPaywall}>
             <Text selectable style={styles.lockedInsightButtonLabel}>
-              Unlock Pro
+              {t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
             </Text>
           </Pressable>
         </View>
@@ -1049,10 +1091,13 @@ export default function ProgressIndex() {
       {isPro ? (
         <View style={styles.card}>
           <Text selectable style={styles.cardTitle}>
-            Top 3 Foods
+            {t('progress.topThreeFoods', { defaultValue: 'Top 3 Foods' })}
           </Text>
           <Text selectable style={styles.sampleHint}>
-            {topFoods?.totalMeals ?? 0} logged meal{topFoods?.totalMeals === 1 ? '' : 's'}
+            {t('progress.loggedMeals', {
+              defaultValue: `${topFoods?.totalMeals ?? 0} logged meal${topFoods?.totalMeals === 1 ? '' : 's'}`,
+              count: topFoods?.totalMeals ?? 0,
+            })}
           </Text>
 
           {topFoodsQuery.isLoading ? (
@@ -1060,7 +1105,7 @@ export default function ProgressIndex() {
           ) : (topFoods?.items.length ?? 0) === 0 ? (
             <View style={styles.emptyChartState}>
               <Text selectable style={styles.emptyChartText}>
-                No food logs for this range.
+                {t('progress.noFoodLogs', { defaultValue: 'No food logs for this range.' })}
               </Text>
             </View>
           ) : (
@@ -1083,7 +1128,14 @@ export default function ProgressIndex() {
                       </View>
                     </View>
                     <Text selectable style={styles.topFoodMeta}>
-                      Avg {Math.round(item.avgSodiumMg).toLocaleString()} mg / {formatRiskLabel(item.dominantRisk)}
+                      {t('progress.topFoodMeta', {
+                        defaultValue: `Avg ${Math.round(item.avgSodiumMg).toLocaleString()} mg / ${formatRiskLabel(item.dominantRisk, t('common.unknown', { defaultValue: 'Unknown' }))}`,
+                        avg: Math.round(item.avgSodiumMg).toLocaleString(),
+                        risk: formatRiskLabel(
+                          item.dominantRisk,
+                          t('common.unknown', { defaultValue: 'Unknown' })
+                        ),
+                      })}
                     </Text>
                   </Pressable>
                 </Link>
@@ -1095,18 +1147,20 @@ export default function ProgressIndex() {
         <View style={[styles.card, styles.lockedInsightCard]}>
           <View style={styles.lockedInsightHeader}>
             <Text selectable style={styles.cardTitle}>
-              Top 3 Foods
+              {t('progress.topThreeFoods', { defaultValue: 'Top 3 Foods' })}
             </Text>
             <Text selectable style={styles.lockedInsightBadge}>
               PRO
             </Text>
           </View>
           <Text selectable style={styles.lockedInsightText}>
-            See your top sodium contributors and drill into history.
+            {t('progress.unlockTopFoodsInsight', {
+              defaultValue: 'See your top sodium contributors and drill into history.',
+            })}
           </Text>
           <Pressable style={styles.lockedInsightButton} onPress={handleOpenPaywall}>
             <Text selectable style={styles.lockedInsightButtonLabel}>
-              Unlock Pro
+              {t('common.unlockPro', { defaultValue: 'Unlock Pro' })}
             </Text>
           </Pressable>
         </View>
