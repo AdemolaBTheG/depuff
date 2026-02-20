@@ -3,7 +3,8 @@ CREATE TABLE `daily_logs` (
 	`water_intake` integer DEFAULT 0,
 	`routine_completed` integer DEFAULT false,
 	`daily_bloat_score` integer,
-	`sodium_status` text DEFAULT 'safe'
+	`sodium_status` text DEFAULT 'safe',
+	`actionable_steps` text
 );
 --> statement-breakpoint
 CREATE TABLE `face_scans` (

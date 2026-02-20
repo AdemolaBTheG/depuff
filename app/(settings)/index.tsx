@@ -1,18 +1,20 @@
+import { useSettingsStore } from '@/stores/settingsStore';
+import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as Linking from 'expo-linking';
 import { PressableScale } from 'pressto';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
-    Alert,
-    I18nManager,
-    Platform,
-    PlatformColor,
-    SectionList,
-    StyleSheet,
-    Text,
-    useWindowDimensions,
-    View
+  Alert,
+  I18nManager,
+  Platform,
+  PlatformColor,
+  SectionList,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { useDerivedValue, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
@@ -27,9 +29,17 @@ const privacyUrl = 'https://depuff.app/privacy';
 
 export default function SettingsIndex() {
   const { width, height } = useWindowDimensions();
+  const { waterGoalMl, sodiumGoalMg, setWaterGoalMl, setSodiumGoalMg } = useSettingsStore();
+
   // Mocking subscription state for Depuff until RevenueCat is wired
   const isPro = false;
   const isRTL = I18nManager.isRTL;
+
+  useEffect(() => {
+    void syncHydrationWidgetSnapshot().catch((widgetError) => {
+      console.warn('Failed to sync hydration widget', widgetError);
+    });
+  }, [waterGoalMl]);
 
   const openLink = async (url: string) => {
     const supported = await Linking.canOpenURL(url);
@@ -49,7 +59,56 @@ export default function SettingsIndex() {
     }
   };
 
+  const promptGoal = (title: string, message: string, currentValue: number, onSave: (val: number) => void) => {
+    Alert.prompt(
+      title,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Save', 
+          onPress: (val: any) => {
+            const num = parseInt(val || '', 10);
+            if (!isNaN(num) && num > 0) {
+              onSave(num);
+            } else {
+              Alert.alert('Invalid Input', 'Please enter a valid number greater than 0.');
+            }
+          }
+        }
+      ],
+      'plain-text',
+      currentValue.toString(),
+      'number-pad'
+    );
+  };
+
   const SECTIONS = [
+    {
+      title: 'Current Goals',
+      data: [
+        [
+          {
+            id: 'waterGoal',
+            label: `Hydration (${waterGoalMl} ml)`,
+            icon: 'water',
+            rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
+            rightIconType: 'Ionicons',
+            onPress: () => promptGoal('Hydration Goal', 'Enter your daily water goal in milliliters (ml):', waterGoalMl, setWaterGoalMl),
+            iconColor: PlatformColor('systemBlue'),
+          },
+          {
+            id: 'sodiumGoal',
+            label: `Sodium Limit (${sodiumGoalMg} mg)`,
+            icon: 'restaurant',
+            rightIcon: isRTL ? 'chevron-back' : 'chevron-forward',
+            rightIconType: 'Ionicons',
+            onPress: () => promptGoal('Sodium Limit', 'Enter your daily sodium limit in milligrams (mg):', sodiumGoalMg, setSodiumGoalMg),
+            iconColor: PlatformColor('systemOrange'),
+          },
+        ],
+      ],
+    },
     {
       title: 'Support',
       data: [

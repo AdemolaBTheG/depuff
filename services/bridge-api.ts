@@ -231,6 +231,8 @@ export async function analyzeFace(params: AnalyzeFaceParams): Promise<AnalyzeFac
     params.authToken
   );
 
+  console.log("=== RAW FACE API RESPONSE ===", JSON.stringify(response, null, 2));
+
   return {
     ...response,
     locale: normalizeLocale(response.locale),

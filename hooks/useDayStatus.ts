@@ -1,7 +1,8 @@
-import { dailyLogs, faceScans, foodLogs } from '@/db/schema';
+import { dailyLogs, faceScans, foodLogs, type ActionItem } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
-import { desc, eq, sql } from 'drizzle-orm';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useQuery } from '@tanstack/react-query';
+import { desc, eq, sql } from 'drizzle-orm';
 
 export type DayProgressState = 'empty' | 'partial' | 'complete';
 
@@ -13,6 +14,7 @@ export type DayStatus = {
   protocolTasksComplete: boolean;
   progressPercent: 0 | 50 | 100;
   state: DayProgressState;
+  actionableSteps: ActionItem[] | null;
 };
 
 export type DayBalance = {
@@ -62,6 +64,7 @@ async function fetchDayStatus(date: string): Promise<DayStatus> {
     .select({
       waterIntake: dailyLogs.waterIntake,
       routineCompleted: dailyLogs.routineCompleted,
+      actionableSteps: dailyLogs.actionableSteps,
     })
     .from(dailyLogs)
     .where(eq(dailyLogs.date, date))
@@ -83,6 +86,7 @@ async function fetchDayStatus(date: string): Promise<DayStatus> {
     protocolTasksComplete,
     progressPercent: progressPercent as 0 | 50 | 100,
     state: toProgressState({ hasScan, protocolTasksComplete }),
+    actionableSteps: dailyRow?.actionableSteps ?? null,
   };
 }
 
@@ -93,6 +97,7 @@ export function useDayStatus(date = toDailyDate()) {
     enabled: Boolean(db),
     queryKey: ['day-status', date],
     queryFn: () => fetchDayStatus(date),
+    staleTime: 60_000,
   });
 }
 
@@ -121,8 +126,7 @@ async function fetchDayBalance(date: string): Promise<DayBalance> {
     .from(foodLogs)
     .where(eq(foodLogs.logDate, date));
 
-  const waterGoalMl = 2500;
-  const sodiumGoalMg = 2300;
+  const { waterGoalMl, sodiumGoalMg } = useSettingsStore.getState();
   const waterIntakeMl = dailyRow?.waterIntake ?? 0;
   const sodiumMg = sodiumRow?.totalSodium ?? 0;
 
@@ -143,6 +147,7 @@ export function useDayBalance(date = toDailyDate()) {
     enabled: Boolean(db),
     queryKey: ['day-balance', date],
     queryFn: () => fetchDayBalance(date),
+    staleTime: 60_000,
   });
 }
 
@@ -191,5 +196,6 @@ export function useDayRecentFoods(date = toDailyDate(), limit = 3) {
     enabled: Boolean(db),
     queryKey: ['day-foods', date, safeLimit],
     queryFn: () => fetchDayRecentFoods(date, safeLimit),
+    staleTime: 60_000,
   });
 }

@@ -144,11 +144,12 @@ const ROUTINE_VARIANT_TITLES: Record<SupportedLocale, Record<WeekdayVariant, str
 
 const FACE_SYSTEM_INSTRUCTION = [
   'You are a professional medical aesthetician specializing in edema and lymphatic health.',
-  'Analyze the provided facial image.',
-  'Look for:',
-  '1) Periorbital puffiness (smoothness vs. sharp eye creases).',
-  '2) Jawline definition (shadow contrast on the mandible).',
-  '3) Asymmetry indicating sleep-side fluid pooling.',
+  'Analyze the provided facial image for early signs of fluid retention and facial fullness.',
+  'Pay attention to key indicators such as:',
+  '- Periorbital puffiness (smoothness vs. sharp eye creases).',
+  '- Jawline definition (shadow contrast on the mandible).',
+  '- Asymmetry indicating sleep-side fluid pooling.',
+  '- General facial edema or mid-face tissue swelling.',
   "Return only a JSON object with keys: 'score' (0-100), 'focus_areas' (array), 'summary' (1 sentence), 'actionable_steps' (array of 3-5 short practical actions).",
 ].join('\n');
 
@@ -215,7 +216,7 @@ app.post('/v1/analyze/face', async (req: Request, res: Response) => {
       `Write 'summary' in ${languageLabel}.`,
       `Write 'actionable_steps' in ${languageLabel}.`,
       "Keep 'focus_areas' canonical short English labels (for stable app mapping).",
-      "Output JSON only: {\"score\":number,\"focus_areas\":string[],\"summary\":string,\"actionable_steps\":string[]}",
+      `Output JSON only: {"score":number,"focus_areas":string[],"summary":string,"actionable_steps":string[]}`,
     ].join('\n');
 
     const modelPayload = await callGeminiJson({

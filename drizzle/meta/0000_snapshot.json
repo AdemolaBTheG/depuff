@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ed686e60-661c-4281-8b10-25749cc2eaa6",
+  "id": "90b5af91-9e53-4036-be88-b88f6c20d357",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "daily_logs": {
@@ -44,6 +44,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": "'safe'"
+        },
+        "actionable_steps": {
+          "name": "actionable_steps",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},

@@ -3,7 +3,9 @@ const { withUniwindConfig } = require('uniwind/metro');
 
 const config = getDefaultConfig(__dirname);
 
-// your metro modifications
+if (!config.resolver.sourceExts.includes('sql')) {
+  config.resolver.sourceExts.push('sql');
+}
 
 module.exports = withUniwindConfig(config, {
   // relative path to your global.css file (from previous step)

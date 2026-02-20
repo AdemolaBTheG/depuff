@@ -1,25 +1,22 @@
-import { NativeButton } from '@/components/native-button';
 import Shimmer from '@/components/shimmer';
 import { Theme } from '@/constants/Theme';
-import { BridgeApiError } from '@/services/bridge-api';
 import { useAnalyzeFaceMutation } from '@/hooks/useBridgeApi';
-import { persistScanResult } from '@/utils/scan-intake';
+import { BridgeApiError } from '@/services/bridge-api';
 import {
   hapticError,
   hapticImpact,
   hapticSelection,
   hapticSuccess,
   startAnalyzingHaptic,
-  stopAnalyzingHaptic,
   stopAllAppHaptics,
+  stopAnalyzingHaptic,
 } from '@/utils/haptics';
-import { Button as IOSButton, Host as IOSHost, HStack as IOSHStack, Spacer as IOSSpacer } from '@expo/ui/swift-ui';
-import { buttonStyle, controlSize, disabled as iosDisabled, tint } from '@expo/ui/swift-ui/modifiers';
+import { persistScanResult } from '@/utils/scan-intake';
 import { useIsFocused } from '@react-navigation/native';
 import { Canvas, FillType, Path, rect, Skia } from '@shopify/react-native-skia';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Image } from 'expo-image';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import {
@@ -212,6 +209,7 @@ export default function ScanIndexScreen() {
   const captureInFlightRef = useRef(false);
   const stableFramesRef = useRef(0);
   const capturedUriRef = useRef<string | null>(null);
+  const recaptureBlockedUntilRef = useRef(0);
 
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [gate, setGate] = useState<QualityGateState>(INITIAL_GATE_STATE);
@@ -223,6 +221,9 @@ export default function ScanIndexScreen() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const analyzeFaceMutation = useAnalyzeFaceMutation();
+  const supportsFlashCapture = Boolean(device?.hasFlash);
+  const supportsTorch = Boolean(device?.hasTorch);
+  const canUseFlashControl = supportsFlashCapture || supportsTorch;
 
   const faceDetectionOptions = useMemo<FrameFaceDetectionOptions>(
     () => ({
@@ -259,11 +260,18 @@ export default function ScanIndexScreen() {
 
   const handleRetake = useCallback(() => {
     hapticSelection();
+    recaptureBlockedUntilRef.current = Date.now() + 1200;
     clearCapture();
   }, [clearCapture]);
 
   const isAnalyzing = analyzeFaceMutation.isPending || isPersisting;
   const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
+
+  useEffect(() => {
+    if (!canUseFlashControl && flashEnabled) {
+      setFlashEnabled(false);
+    }
+  }, [canUseFlashControl, flashEnabled]);
 
   const screenOptions = useMemo(
     () => ({
@@ -280,17 +288,8 @@ export default function ScanIndexScreen() {
           onPress: () => router.back(),
         },
       ],
-      unstable_headerRightItems: () => [
-        {
-          type: 'button' as const,
-          label: flashEnabled ? 'Flash Off' : 'Flash On',
-          icon: { type: 'sfSymbol' as const, name: flashIconName },
-          tintColor: Theme.colors.accent,
-          onPress: () => setFlashEnabled((current) => !current),
-        },
-      ],
     }),
-    [flashEnabled, flashIconName, router]
+    [router]
   );
 
   const analyzeCapturedImage = useCallback(async () => {
@@ -369,7 +368,7 @@ export default function ScanIndexScreen() {
 
     try {
       const photo = await cameraRef.current?.takePhoto({
-        flash: flashEnabled ? 'on' : 'off',
+        flash: flashEnabled && supportsFlashCapture ? 'on' : 'off',
       });
 
       if (!photo?.path) {
@@ -389,7 +388,7 @@ export default function ScanIndexScreen() {
       setIsCapturing(false);
       captureInFlightRef.current = false;
     }
-  }, [flashEnabled]);
+  }, [flashEnabled, supportsFlashCapture]);
 
   const handleFacesDetected = useCallback(
     async (faces: Face[], frame: Frame) => {
@@ -427,12 +426,13 @@ export default function ScanIndexScreen() {
         : Math.max(0, stableFramesRef.current - STABLE_FRAME_DECAY);
 
       const ready = stableFramesRef.current >= REQUIRED_STABLE_FRAMES;
+      const isRecaptureBlocked = Date.now() < recaptureBlockedUntilRef.current;
 
       let guidance = 'Hold steady...';
       if (!faceCountOk) guidance = 'Keep only one face in frame';
       else if (!distanceOk) guidance = faceRatio < MIN_FACE_RATIO ? 'Move closer' : 'Move slightly back';
       else if (!poseOk) guidance = 'Look straight ahead';
-      else if (ready) guidance = 'Locked. Capturing...';
+      else if (ready && !isRecaptureBlocked) guidance = 'Locked. Capturing...';
 
       setGate({
         faceCount,
@@ -449,7 +449,7 @@ export default function ScanIndexScreen() {
         guidance,
       });
 
-      if (ready && !isCapturing && !capturedUriRef.current) {
+      if (ready && !isCapturing && !capturedUriRef.current && !isRecaptureBlocked) {
         await autoCapture();
       }
     },
@@ -458,7 +458,6 @@ export default function ScanIndexScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={screenOptions} />
 
       {!hasPermission ? (
         <View style={styles.centered}>
@@ -483,7 +482,8 @@ export default function ScanIndexScreen() {
             device={device}
             isActive={isFocused && !capturedImageUri}
             photo={true}
-            torch={flashEnabled ? 'on' : 'off'}
+            enableZoomGesture={!capturedImageUri}
+            torch={flashEnabled && supportsTorch ? 'on' : 'off'}
             faceDetectionOptions={faceDetectionOptions}
             faceDetectionCallback={handleFacesDetected}
           />
@@ -513,80 +513,38 @@ export default function ScanIndexScreen() {
           <View style={styles.overlay}>
             {capturedImageUri ? (
               <>
-                {analysisError || isAnalyzing ? (
-                  <View style={styles.previewStatusCard}>
-                    {analysisError ? <Text style={styles.previewError}>{analysisError}</Text> : null}
-                    {isAnalyzing ? (
-                      <View style={styles.statusRow}>
-                        <Shimmer style={styles.analyzingDot}>
-                          <Shimmer.Overlay width="100%" duration={1100} repeatDelay={80}>
-                            <View style={styles.analyzingDotOverlay} />
-                          </Shimmer.Overlay>
-                          <View style={styles.analyzingDotBase} />
-                        </Shimmer>
-                        <Text style={styles.statusText}>
-                          {analyzeFaceMutation.isPending ? 'Analyzing image...' : 'Saving result...'}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
+               
 
-                {process.env.EXPO_OS === 'ios' ? (
-                  <IOSHost
-                    style={[styles.iosActionsHost, styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}
-                  >
-                    <IOSHStack spacing={12}>
-                      <IOSButton
-                        label="Retake"
-                        role="cancel"
-                        onPress={handleRetake}
-                        modifiers={[
-                          iosDisabled(isAnalyzing),
-                          controlSize('large'),
-                          tint('rgba(255,255,255,0.2)'),
-                          buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
-                        ]}
-                      />
-                      <IOSSpacer />
-                      <IOSButton
-                        label="Analyze"
-                        systemImage="sparkles"
-                        onPress={analyzeCapturedImage}
-                        modifiers={[
-                          buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
-                          tint(Theme.colors.accent),
-                          controlSize('large'),
-                          iosDisabled(isAnalyzing),
-                        ]}
-                      />
-                    </IOSHStack>
-                  </IOSHost>
-                ) : (
-                  <View style={[styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}>
-                    <View style={styles.previewActions}>
-                      <>
-                        <View style={styles.previewActionItem}>
-                          <NativeButton
-                            label="Retake"
-                            kind="secondary"
-                            role="cancel"
-                            onPress={handleRetake}
-                            disabled={isAnalyzing}
-                          />
-                        </View>
-                        <View style={styles.previewActionItem}>
-                          <NativeButton
-                            label="Analyze"
-                            onPress={analyzeCapturedImage}
-                            disabled={isAnalyzing}
-                            systemImage="sparkles"
-                          />
-                        </View>
-                      </>
-                    </View>
+                <View style={[styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}>
+                  <View style={styles.previewActions}>
+                    <PressableScale
+                      style={[
+                        styles.previewActionItem,
+                        styles.actionButton,
+                        styles.secondaryButton,
+                        isAnalyzing ? styles.disabledButton : null,
+                      ]}
+                      onPress={isAnalyzing ? undefined : handleRetake}
+                    >
+                      <Text style={styles.secondaryButtonLabel}>Retake</Text>
+                    </PressableScale>
+                    <PressableScale
+                      style={[
+                        styles.previewActionItem,
+                        styles.actionButton,
+                        styles.primaryButton,
+                        isAnalyzing ? styles.disabledButton : null,
+                      ]}
+                      onPress={isAnalyzing ? undefined : analyzeCapturedImage}
+                    >
+                      {isAnalyzing ? (
+                        <ActivityIndicator size="small" color={Theme.colors.foundation} />
+                      ) : (
+                        <Text style={styles.primaryButtonLabel}>Analyze</Text>
+                      )}
+                    </PressableScale>
                   </View>
-                )}
+                </View>
               </>
             ) : (
               <>
@@ -695,8 +653,35 @@ const styles = StyleSheet.create({
   previewActionItem: {
     flex: 1,
   },
-  iosActionsHost: {
-    width: '100%',
+  actionButton: {
+  
+    borderRadius: 24, 
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    borderWidth: 1,
+  },
+  primaryButton: {
+    backgroundColor: Theme.colors.accent,
+    borderColor: Theme.colors.accent,
+  },
+  secondaryButton: {
+    backgroundColor: Theme.colors.glass1,
+    borderColor: Theme.colors.border,
+  },
+  primaryButtonLabel: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  secondaryButtonLabel: {
+    color: Theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
  
   previewError: {

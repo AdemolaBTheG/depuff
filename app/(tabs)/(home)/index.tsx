@@ -1,3 +1,4 @@
+import { AIChecklist } from '@/components/ai-checklist';
 import { CounterControls } from '@/components/daily-steps/counter-controls';
 import { DigitalCounter } from '@/components/daily-steps/digital-counter';
 import { dailyLogs, faceScans } from '@/db/schema';
@@ -7,11 +8,14 @@ import {
   useDayBalance,
   useDayRecentFoods,
   type DayBalance,
-  type DayProgressState,
+  type DayFoodEntry,
+  type DayStatus
 } from '@/hooks/useDayStatus';
 import { DigitalCounterProvider } from '@/lib/digital-counter-context';
+import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { useDbStore } from '@/stores/dbStore';
-import { hapticSelection } from '@/utils/haptics';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { hapticSelection, hapticSuccess } from '@/utils/haptics';
 import {
   Button as IOSButton,
   Host as IOSHost,
@@ -21,12 +25,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Canvas, Group, Path, RoundedRect, Skia } from '@shopify/react-native-skia';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Burnt from 'burnt';
 import { desc, eq, sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import { Link, useRouter } from 'expo-router';
-import { PressableScale } from 'pressto';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { PlatformColor, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PlatformColor, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,12 +38,13 @@ const DAYS_TO_SHOW = 7;
 const WATER_STEP_ML = 250;
 const SCAN_RING_SIZE = 98;
 const SCAN_RING_STROKE = 10;
+const EMPTY_ACTIONABLE_STEPS: { id: string; text: string; completed: boolean }[] = [];
+const EMPTY_RECENT_FOODS: DayFoodEntry[] = [];
 
 type WeekItem = {
   date: string;
   dayLetter: string;
   progressPercent: 0 | 50 | 100;
-  state: DayProgressState;
 };
 type ProgressColorStop = [number, string];
 type ScanSummary = {
@@ -147,7 +152,11 @@ type DayProgressCircleProps = {
   size: number;
 };
 
-function DayProgressCircle({ progressPercent, selected, size }: DayProgressCircleProps) {
+const DayProgressCircle = React.memo(function DayProgressCircle({
+  progressPercent,
+  selected,
+  size,
+}: DayProgressCircleProps) {
   const strokeWidth = selected ? 6.4 : 5.4;
   const progress = useSharedValue(0);
 
@@ -190,7 +199,7 @@ function DayProgressCircle({ progressPercent, selected, size }: DayProgressCircl
       </Group>
     </Canvas>
   );
-}
+});
 
 type MetricProgressBarProps = {
   progress: number;
@@ -240,7 +249,7 @@ function MetricProgressBar({
   );
 }
 
-function ScanScoreRing({ score }: { score: number }) {
+const ScanScoreRing = React.memo(function ScanScoreRing({ score }: { score: number }) {
   const clampedScore = Math.max(0, Math.min(100, Math.round(score)));
   const progress = useSharedValue(0);
 
@@ -289,16 +298,107 @@ function ScanScoreRing({ score }: { score: number }) {
       </View>
     </View>
   );
-}
+});
+
+type WeekDayButtonProps = {
+  date: string;
+  dayLetter: string;
+  progressPercent: 0 | 50 | 100;
+  selected: boolean;
+  size: number;
+  onSelectDate: (date: string) => void;
+};
+
+const WeekDayButton = React.memo(function WeekDayButton({
+  date,
+  dayLetter,
+  progressPercent,
+  selected,
+  size,
+  onSelectDate,
+}: WeekDayButtonProps) {
+  return (
+    <Pressable onPress={() => onSelectDate(date)} style={styles.dayPressable}>
+      <DayProgressCircle progressPercent={progressPercent} selected={selected} size={size} />
+      <Text selectable style={[styles.dayLabel, selected ? styles.dayLabelSelected : null]}>
+        {dayLetter}
+      </Text>
+    </Pressable>
+  );
+});
+
+type RecentFoodListItemProps = {
+  food: DayFoodEntry;
+  showSeparator: boolean;
+};
+
+const RecentFoodListItem = React.memo(function RecentFoodListItem({
+  food,
+  showSeparator,
+}: RecentFoodListItemProps) {
+  return (
+    <React.Fragment>
+      {showSeparator ? <View style={styles.recentFoodSeparator} /> : null}
+      <Link href={`/(food)/${food.id}` as never} asChild>
+        <Pressable onPress={hapticSelection} style={styles.recentFoodRow}>
+          <View style={styles.recentFoodMainRow}>
+            {food.localImageUri ? (
+              <Image
+                source={food.localImageUri}
+                style={styles.recentFoodThumb}
+                contentFit="cover"
+                transition={150}
+              />
+            ) : (
+              <View style={styles.recentFoodThumbFallback}>
+                <Ionicons name="image-outline" size={18} color="rgba(15, 23, 42, 0.36)" />
+              </View>
+            )}
+            <View style={styles.recentFoodContent}>
+              <View style={styles.recentFoodHeader}>
+                <Text selectable numberOfLines={1} style={styles.recentFoodName}>
+                  {food.foodName}
+                </Text>
+                <View style={styles.recentFoodHeaderRight}>
+                  <Text selectable style={styles.recentFoodTime}>
+                    {formatFoodLogTime(food.createdAt)}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={17} color={PlatformColor('tertiaryLabel')} />
+                </View>
+              </View>
+              <View style={styles.recentFoodMetaRow}>
+                <Text selectable style={styles.recentFoodMetaPill}>
+                  {food.sodiumEstimateMg.toLocaleString()} mg
+                </Text>
+                <Text selectable style={styles.recentFoodRisk}>
+                  {formatRiskLabel(food.bloatRiskLevel)}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {food.aiReasoning ? (
+            <Text selectable numberOfLines={2} style={styles.recentFoodReason}>
+              {food.aiReasoning}
+            </Text>
+          ) : null}
+        </Pressable>
+      </Link>
+    </React.Fragment>
+  );
+});
 
 export default function HomeIndex() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const db = useDbStore((state) => state.db);
+  const waterGoalMl = useSettingsStore((state) => state.waterGoalMl);
+  const sodiumGoalMg = useSettingsStore((state) => state.sodiumGoalMg);
   const { width } = useWindowDimensions();
   const recentDates = useMemo(() => buildRecentDates(DAYS_TO_SHOW), []);
   const [selectedDate, setSelectedDate] = useState(recentDates[recentDates.length - 1]);
+  const celebratedHydrationDatesRef = useRef<Set<string>>(new Set());
+  const celebratedActionPlanDatesRef = useRef<Set<string>>(new Set());
 
   const circleSize = useMemo(() => {
     const innerWidth = Math.max(width - 40, 280);
@@ -319,12 +419,36 @@ export default function HomeIndex() {
     hapticSelection();
     router.push('/(food)' as never);
   }, [router]);
+  const showHydrationGoalToast = useCallback(() => {
+    hapticSuccess();
+    Burnt.toast({
+      title: 'Hydration Goal Reached',
+      message: 'You hit your daily water target.',
+      preset: 'done',
+      haptic: 'none',
+      from: 'bottom',
+      duration: 3,
+    });
+  }, []);
+  const showActionPlanToast = useCallback(() => {
+    hapticSuccess();
+    Burnt.toast({
+      title: 'Action Plan Complete',
+      message: 'All daily action items are done.',
+      preset: 'done',
+      haptic: 'none',
+      from: 'bottom',
+      duration: 3,
+    });
+  }, []);
 
   const dayQueries = useQueries({
     queries: recentDates.map((date) => ({
       enabled: Boolean(db),
       queryKey: ['day-status', date],
       queryFn: () => getDayStatus(date),
+      staleTime: 60_000,
+      notifyOnChangeProps: ['data'],
     })),
   });
   const dayBalanceQuery = useDayBalance(selectedDate);
@@ -332,8 +456,14 @@ export default function HomeIndex() {
 
   useFocusEffect(
     useCallback(() => {
-      void queryClient.invalidateQueries({ queryKey: ['day-status'] });
-    }, [queryClient])
+      const todayKey = toDailyDate(new Date());
+      const datesToRefresh = selectedDate === todayKey ? [selectedDate] : [selectedDate, todayKey];
+      datesToRefresh.forEach((date) => {
+        void queryClient.invalidateQueries({ queryKey: ['day-status', date], exact: true });
+        void queryClient.invalidateQueries({ queryKey: ['day-balance', date], exact: true });
+        void queryClient.invalidateQueries({ queryKey: ['day-foods', date], exact: false });
+      });
+    }, [queryClient, selectedDate])
   );
 
   const weekItems = useMemo<WeekItem[]>(
@@ -341,13 +471,11 @@ export default function HomeIndex() {
       recentDates.map((date, index) => {
         const query = dayQueries[index];
         const progress = query.data?.progressPercent ?? 0;
-        const state = query.data?.state ?? 'empty';
 
         return {
           date,
           dayLetter: dayLetterFromDate(date),
           progressPercent: progress,
-          state,
         };
       }),
     [dayQueries, recentDates]
@@ -360,6 +488,7 @@ export default function HomeIndex() {
   const selectedDayScanSummaryQuery = useQuery({
     enabled: Boolean(db) && hasScanForSelectedDay,
     queryKey: ['home-selected-day-scan-summary', selectedDate],
+    staleTime: 60_000,
     queryFn: async (): Promise<ScanSummary | null> => {
       if (!db) return null;
 
@@ -403,10 +532,11 @@ export default function HomeIndex() {
   const selectedDayScanSummary = selectedDayScanSummaryQuery.data;
 
   const waterIntakeMl = dayBalanceQuery.data?.waterIntakeMl ?? 0;
-  const waterGoalMl = dayBalanceQuery.data?.waterGoalMl ?? 2500;
   const sodiumMg = dayBalanceQuery.data?.sodiumMg ?? 0;
-  const sodiumGoalMg = dayBalanceQuery.data?.sodiumGoalMg ?? 2300;
-  const recentFoods = dayRecentFoodsQuery.data ?? [];
+  const recentFoods = dayRecentFoodsQuery.data ?? EMPTY_RECENT_FOODS;
+  const actionableSteps = dayQueries[selectedDayIndex]?.data?.actionableSteps ?? EMPTY_ACTIONABLE_STEPS;
+  const areAllActionItemsCompleted = actionableSteps.length > 0 && actionableSteps.every((step) => step.completed);
+
   const hydrationProgress = useMemo(
     () => clamp01(waterIntakeMl / Math.max(waterGoalMl, 1)),
     [waterGoalMl, waterIntakeMl]
@@ -433,6 +563,18 @@ export default function HomeIndex() {
   const visibleScanFocusAreas = scanFocusAreas.slice(0, 2);
   const hiddenScanFocusAreaCount = Math.max(0, scanFocusAreas.length - visibleScanFocusAreas.length);
 
+  useEffect(() => {
+    if (waterIntakeMl >= waterGoalMl) {
+      celebratedHydrationDatesRef.current.add(selectedDate);
+    }
+  }, [selectedDate, waterGoalMl, waterIntakeMl]);
+
+  useEffect(() => {
+    if (areAllActionItemsCompleted) {
+      celebratedActionPlanDatesRef.current.add(selectedDate);
+    }
+  }, [areAllActionItemsCompleted, selectedDate]);
+
   const handleOpenScanResult = useCallback(() => {
     if (!selectedDayScanSummary) return;
     hapticSelection();
@@ -451,6 +593,11 @@ export default function HomeIndex() {
     const safeIntake = Math.max(0, Math.round(nextWaterIntake));
     const queryKey = ['day-balance', selectedDate] as const;
     const previousBalance = queryClient.getQueryData<DayBalance>(queryKey);
+    const previousIntake = previousBalance?.waterIntakeMl ?? waterIntakeMl;
+    const shouldCelebrateHydration =
+      previousIntake < waterGoalMl &&
+      safeIntake >= waterGoalMl &&
+      !celebratedHydrationDatesRef.current.has(selectedDate);
 
     queryClient.setQueryData<DayBalance>(queryKey, (current) =>
       current ? { ...current, waterIntakeMl: safeIntake } : current
@@ -472,42 +619,90 @@ export default function HomeIndex() {
 
       await queryClient.invalidateQueries({ queryKey: ['day-status', selectedDate] });
       await queryClient.invalidateQueries({ queryKey: ['day-balance', selectedDate] });
+      void syncHydrationWidgetSnapshot().catch((widgetError) => {
+        console.warn('Failed to sync hydration widget', widgetError);
+      });
+      if (shouldCelebrateHydration) {
+        celebratedHydrationDatesRef.current.add(selectedDate);
+        showHydrationGoalToast();
+      }
     } catch (error) {
       if (previousBalance) {
         queryClient.setQueryData(queryKey, previousBalance);
       }
       console.warn('Failed to update hydration', error);
     }
-  }, [db, queryClient, selectedDate]);
+  }, [db, queryClient, selectedDate, showHydrationGoalToast, waterGoalMl, waterIntakeMl]);
+  const handleToggleActionItem = useCallback(async (id: string, currentCompleted: boolean) => {
+    if (!db) return;
+    const nextCompleted = !currentCompleted;
+    
+    const queryKey = ['day-status', selectedDate] as const;
+    const previousStatus = queryClient.getQueryData<DayStatus>(queryKey);
+    
+    // Optimistically update React Query cache so the UI animations are instant
+    queryClient.setQueryData<DayStatus>(queryKey, (old) => {
+      if (!old || !old.actionableSteps) return old;
+      return {
+        ...old,
+        actionableSteps: old.actionableSteps.map(step => 
+          step.id === id ? { ...step, completed: nextCompleted } : step
+        )
+      };
+    });
+
+    try {
+      if (!previousStatus?.actionableSteps) return;
+      const newSteps = previousStatus.actionableSteps.map(step => 
+          step.id === id ? { ...step, completed: nextCompleted } : step
+      );
+      const wasCompleteBefore =
+        previousStatus.actionableSteps.length > 0 &&
+        previousStatus.actionableSteps.every((step) => step.completed);
+      const isCompleteNow = newSteps.length > 0 && newSteps.every((step) => step.completed);
+      const shouldCelebrateActionPlan =
+        isCompleteNow &&
+        !wasCompleteBefore &&
+        !celebratedActionPlanDatesRef.current.has(selectedDate);
+      
+      await db.update(dailyLogs)
+        .set({ actionableSteps: newSteps })
+        .where(eq(dailyLogs.date, selectedDate));
+      if (shouldCelebrateActionPlan) {
+        celebratedActionPlanDatesRef.current.add(selectedDate);
+        showActionPlanToast();
+      }
+    } catch (error) {
+      if (previousStatus) {
+        queryClient.setQueryData(queryKey, previousStatus);
+      }
+      console.warn('Failed to update action item', error);
+    }
+  }, [db, queryClient, selectedDate, showActionPlanToast]);
+
+  const scrollContentStyle = useMemo(
+    () => [styles.contentContainer, { paddingBottom: insets.bottom + 24 }],
+    [insets.bottom]
+  );
 
   return (
-    <View style={styles.container}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        style={StyleSheet.absoluteFill}
-        contentContainerStyle={[
-        styles.contentContainer,
-        { paddingBottom: insets.bottom + 24 }
-      ]}
-    >
+        removeClippedSubviews
+        contentContainerStyle={scrollContentStyle}
+      >
       <View style={styles.weekRow}>
         {weekItems.map((item) => {
-          const isSelected = item.date === selectedDate;
           return (
-            <PressableScale
+            <WeekDayButton
               key={item.date}
-              onPress={() => handleSelectDate(item.date)}
-              style={styles.dayPressable}
-            >
-              <DayProgressCircle
-                progressPercent={item.progressPercent}
-                selected={isSelected}
-                size={circleSize}
-              />
-              <Text selectable style={[styles.dayLabel, isSelected ? styles.dayLabelSelected : null]}>
-                {item.dayLetter}
-              </Text>
-            </PressableScale>
+              date={item.date}
+              dayLetter={item.dayLetter}
+              progressPercent={item.progressPercent}
+              selected={item.date === selectedDate}
+              size={circleSize}
+              onSelectDate={handleSelectDate}
+            />
           );
         })}
       </View>
@@ -552,7 +747,9 @@ export default function HomeIndex() {
                 </View>
               )}
               <View style={styles.scanRingStack}>
-                <ScanScoreRing score={selectedDayScanSummary?.score ?? 0} />
+                <ScanScoreRing
+                  score={selectedDayScanSummary?.score ?? 0}
+                />
                 <Text selectable style={styles.scanScoreCaption}>
                   Bloat score
                 </Text>
@@ -610,7 +807,7 @@ export default function HomeIndex() {
             </View>
           </View>
         ) : (
-          <PressableScale onPress={handleOpenScan} style={styles.scanEmptyState}>
+          <View style={styles.scanEmptyState}>
             <View style={styles.scanEmptyIconWrap}>
               <Ionicons name="scan" size={44} color="rgba(15, 23, 42, 0.45)" />
             </View>
@@ -637,9 +834,13 @@ export default function HomeIndex() {
                 ]}
               />
             </IOSHost>
-          </PressableScale>
+          </View>
         )}
       </View>
+
+      {/* AI Action Plan is pushed to the top right below the Scan Result */}
+      <AIChecklist items={actionableSteps} onToggleItem={handleToggleActionItem} />
+
       <View style={styles.metricsStack}>
         <View style={styles.metricCard}>
           <View style={styles.metricHeaderRow}>
@@ -684,13 +885,13 @@ export default function HomeIndex() {
                 SODIUM
               </Text>
             </View>
-            <IOSHost matchContents useViewportSizeMeasurement>
+            <IOSHost style={styles.metricLogFoodHost} matchContents useViewportSizeMeasurement>
               <IOSButton
                 label="Log Food"
                 systemImage="fork.knife"
                 onPress={handleLogFood}
                 modifiers={[
-                  controlSize('regular'),
+                  controlSize('small'),
                   tint('rgba(34, 211, 238, 1)'),
                   buttonStyle('borderedProminent'),
                 ]}
@@ -708,24 +909,25 @@ export default function HomeIndex() {
           />
         </View>
       </View>
+
       <View style={styles.recentFoodCardsSection}>
         <View style={styles.recentFoodsHeader}>
           <Text selectable style={styles.recentFoodsTitle}>
             Last 3 logged foods
           </Text>
           <Link href="/(food)/all" asChild>
-            <PressableScale onPress={hapticSelection} style={styles.recentFoodsHeaderAction}>
-              <Ionicons name="chevron-forward" size={19} color={PlatformColor('secondaryLabel')} />
-            </PressableScale>
+            <Pressable onPress={hapticSelection} style={styles.recentFoodsHeaderAction}>
+              <Ionicons name="chevron-forward" size={24} color={PlatformColor('secondaryLabel')} />
+            </Pressable>
           </Link>
         </View>
         {recentFoods.length === 0 ? (
-          <PressableScale onPress={handleLogFood} style={styles.recentFoodCardEmpty}>
+          <View style={styles.recentFoodCardEmpty}>
             <Text selectable style={styles.recentFoodsEmpty}>
               No foods logged for this day.
             </Text>
             {process.env.EXPO_OS === 'ios' ? (
-              <IOSHost style={styles.recentFoodEmptyActionHost} matchContents useViewportSizeMeasurement>
+              <IOSHost matchContents useViewportSizeMeasurement>
                 <IOSButton
                   label="Log Food"
                   systemImage="fork.knife"
@@ -738,81 +940,32 @@ export default function HomeIndex() {
                 />
               </IOSHost>
             ) : (
-              <PressableScale onPress={handleLogFood} style={styles.recentFoodEmptyActionFallback}>
+              <Pressable onPress={handleLogFood} style={styles.recentFoodEmptyActionFallback}>
                 <Text selectable style={styles.recentFoodEmptyActionFallbackLabel}>
                   Log Food
                 </Text>
-              </PressableScale>
+              </Pressable>
             )}
-          </PressableScale>
+          </View>
         ) : (
           <View style={styles.recentFoodsList}>
             {recentFoods.map((food, index) => (
-              <React.Fragment key={food.id}>
-                {index > 0 && <View style={styles.recentFoodSeparator} />}
-                <Link href={`/(food)/${food.id}` as never} asChild>
-                  <PressableScale onPress={hapticSelection} style={styles.recentFoodRow}>
-                    <View style={styles.recentFoodMainRow}>
-                    {food.localImageUri ? (
-                      <Image
-                        source={food.localImageUri}
-                        style={styles.recentFoodThumb}
-                        contentFit="cover"
-                        transition={150}
-                      />
-                    ) : (
-                      <View style={styles.recentFoodThumbFallback}>
-                        <Ionicons name="image-outline" size={18} color="rgba(15, 23, 42, 0.36)" />
-                      </View>
-                    )}
-                    <View style={styles.recentFoodContent}>
-                      <View style={styles.recentFoodHeader}>
-                        <Text selectable numberOfLines={1} style={styles.recentFoodName}>
-                          {food.foodName}
-                        </Text>
-                        <View style={styles.recentFoodHeaderRight}>
-                          <Text selectable style={styles.recentFoodTime}>
-                            {formatFoodLogTime(food.createdAt)}
-                          </Text>
-                          <Ionicons
-                            name="chevron-forward"
-                            size={17}
-                            color={PlatformColor('tertiaryLabel')}
-                          />
-                        </View>
-                      </View>
-                      <View style={styles.recentFoodMetaRow}>
-                        <Text selectable style={styles.recentFoodMetaPill}>
-                          {food.sodiumEstimateMg.toLocaleString()} mg
-                        </Text>
-                        <Text selectable style={styles.recentFoodRisk}>
-                          {formatRiskLabel(food.bloatRiskLevel)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {food.aiReasoning ? (
-                      <Text selectable numberOfLines={2} style={styles.recentFoodReason}>
-                        {food.aiReasoning}
-                      </Text>
-                    ) : null}
-                  </PressableScale>
-                </Link>
-              </React.Fragment>
+              <RecentFoodListItem
+                key={food.id}
+                food={food}
+                showSeparator={index > 0}
+              />
             ))}
           </View>
         )}
       </View>
       </ScrollView>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: PlatformColor('systemGroupedBackground'),
-  },
+ 
+
   contentContainer: {
     paddingTop: 16,
     paddingHorizontal: 16,
@@ -830,15 +983,15 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     color: PlatformColor('secondaryLabel'),
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
-    letterSpacing: 0.6,
+    letterSpacing: 0.2,
   },
   dayLabelSelected: {
     color: PlatformColor('label'),
   },
   stepHint: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: PlatformColor('tertiaryLabel'),
   },
@@ -878,16 +1031,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scanEmptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: PlatformColor('label'),
+    letterSpacing: 0.35,
   },
   scanEmptyDescription: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     color: PlatformColor('secondaryLabel'),
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   scanEmptyStatusPill: {
     borderRadius: 999,
@@ -897,7 +1051,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(148, 163, 184, 0.16)',
   },
   scanEmptyStatusText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.5,
     color: 'rgba(51, 65, 85, 0.75)',
@@ -915,13 +1069,13 @@ const styles = StyleSheet.create({
   scanMetaTopPrimary: {
     flex: 1,
     minWidth: 0,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: PlatformColor('secondaryLabel'),
     fontVariant: ['tabular-nums'],
   },
   scanMetaTopSecondary: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: PlatformColor('tertiaryLabel'),
     fontVariant: ['tabular-nums'],
@@ -966,13 +1120,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scanRingScore: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
     color: PlatformColor('label'),
     fontVariant: ['tabular-nums'],
   },
   scanScoreCaption: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: PlatformColor('secondaryLabel'),
   },
@@ -983,10 +1137,10 @@ const styles = StyleSheet.create({
     color: PlatformColor('systemRed'),
   },
   scanFeedbackText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     color: PlatformColor('secondaryLabel'),
-    lineHeight: 18,
+    lineHeight: 20,
     marginTop: 4,
   },
   scanFocusRow: {
@@ -1044,9 +1198,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   metricHeaderLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: PlatformColor('tertiaryLabel'),
+    letterSpacing: 0.5,
+  },
+  metricLogFoodHost: {
+    alignSelf: 'center',
   },
   hydrationRow: {
     flexDirection: 'row',
@@ -1055,19 +1213,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metricTargetLine: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: PlatformColor('secondaryLabel'),
-  },
-  metricValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: PlatformColor('label'),
-  },
-  metricTarget: {
     fontSize: 15,
     fontWeight: '600',
     color: PlatformColor('secondaryLabel'),
+    fontVariant: ['tabular-nums'],
+  },
+  metricValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: PlatformColor('label'),
+    fontVariant: ['tabular-nums'],
+  },
+  metricTarget: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: PlatformColor('secondaryLabel'),
+    fontVariant: ['tabular-nums'],
   },
   recentFoodCardsSection: {
     gap: 12,
@@ -1087,9 +1248,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recentFoodsTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: PlatformColor('label'),
+    letterSpacing: 0.35,
   },
   recentFoodCardEmpty: {
     borderRadius: 20,
@@ -1100,13 +1262,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   recentFoodsEmpty: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     color: PlatformColor('secondaryLabel'),
   },
-  recentFoodEmptyActionHost: {
-    alignSelf: 'flex-start',
-  },
+
   recentFoodEmptyActionFallback: {
     alignSelf: 'flex-start',
     borderRadius: 999,
@@ -1182,12 +1342,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexShrink: 1,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: PlatformColor('label'),
   },
   recentFoodTime: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '500',
     color: PlatformColor('secondaryLabel'),
     fontVariant: ['tabular-nums'],
@@ -1200,7 +1360,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   recentFoodMetaPill: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: PlatformColor('secondaryLabel'),
     backgroundColor: PlatformColor('tertiarySystemGroupedBackground'),
@@ -1212,15 +1372,15 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   recentFoodRisk: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: PlatformColor('secondaryLabel'),
     letterSpacing: 0.2,
   },
   recentFoodReason: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '400',
     color: PlatformColor('secondaryLabel'),
-    lineHeight: 18,
+    lineHeight: 20,
   },
 });

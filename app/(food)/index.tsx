@@ -1,19 +1,17 @@
-import { Theme } from '@/constants/Theme';
 import Shimmer from '@/components/shimmer';
+import { Theme } from '@/constants/Theme';
 import { useAnalyzeFoodMutation } from '@/hooks/useBridgeApi';
 import { BridgeApiError } from '@/services/bridge-api';
 import { useFoodAnalysisStore } from '@/stores/foodAnalysisStore';
 import { hapticError, hapticImpact, hapticSelection, hapticSuccess } from '@/utils/haptics';
-import { Button as AndroidButton, Host as AndroidHost } from '@expo/ui/jetpack-compose';
-import { Button as IOSButton, Host as IOSHost } from '@expo/ui/swift-ui';
-import { buttonStyle, controlSize, tint } from '@expo/ui/swift-ui/modifiers';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, type Camera as VisionCamera } from 'react-native-vision-camera';
 
@@ -43,6 +41,7 @@ export default function FoodIndexScreen() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const cameraRef = useRef<VisionCamera | null>(null);
+  const hasHydratedFromPendingRef = useRef(false);
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
   const analyzeFoodMutation = useAnalyzeFoodMutation();
@@ -51,10 +50,22 @@ export default function FoodIndexScreen() {
   const clearPendingAnalysis = useFoodAnalysisStore((state) => state.clearPendingAnalysis);
 
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [flashEnabled, setFlashEnabled] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isPickingImage, setIsPickingImage] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const isAnalyzing = analyzeFoodMutation.isPending;
-  const isBusy = isCapturing || isAnalyzing;
+  const isBusy = isCapturing || isAnalyzing || isPickingImage;
+  const supportsFlashCapture = Boolean(device?.hasFlash);
+  const supportsTorch = Boolean(device?.hasTorch);
+  const canUseFlashControl = supportsFlashCapture || supportsTorch;
+  const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
+
+  useEffect(() => {
+    if (!canUseFlashControl && flashEnabled) {
+      setFlashEnabled(false);
+    }
+  }, [canUseFlashControl, flashEnabled]);
 
   const screenOptions = useMemo(
     () => ({
@@ -63,8 +74,24 @@ export default function FoodIndexScreen() {
       headerTransparent: true,
       headerTintColor: Theme.colors.textPrimary,
       headerBackButtonDisplayMode: 'minimal' as const,
+      unstable_headerRightItems: () => [
+        ...(canUseFlashControl
+          ? [
+              {
+                type: 'button' as const,
+                label: flashEnabled ? 'Flash Off' : 'Flash On',
+                icon: { type: 'sfSymbol' as const, name: flashIconName },
+                tintColor: Theme.colors.accent,
+                onPress: () => {
+                  hapticSelection();
+                  setFlashEnabled((current) => !current);
+                },
+              },
+            ]
+          : []),
+      ],
     }),
-    []
+    [canUseFlashControl, flashEnabled, flashIconName]
   );
 
   const handleCapture = useCallback(async () => {
@@ -72,12 +99,13 @@ export default function FoodIndexScreen() {
 
     setIsCapturing(true);
     setCaptureError(null);
+    hasHydratedFromPendingRef.current = true;
     clearPendingAnalysis();
     hapticImpact('light');
 
     try {
       const photo = await cameraRef.current.takePhoto({
-        flash: 'off',
+        flash: flashEnabled && supportsFlashCapture ? 'on' : 'off',
       });
 
       if (!photo?.path) {
@@ -92,14 +120,52 @@ export default function FoodIndexScreen() {
     } finally {
       setIsCapturing(false);
     }
-  }, [clearPendingAnalysis, isCapturing]);
+  }, [clearPendingAnalysis, flashEnabled, isCapturing, supportsFlashCapture]);
 
   const handleRetake = useCallback(() => {
     hapticSelection();
+    hasHydratedFromPendingRef.current = true;
     setCaptureError(null);
     setCapturedImageUri(null);
     clearPendingAnalysis();
   }, [clearPendingAnalysis]);
+
+  const handlePickFromLibrary = useCallback(async () => {
+    if (isBusy) return;
+    hapticSelection();
+    setCaptureError(null);
+    hasHydratedFromPendingRef.current = true;
+    clearPendingAnalysis();
+    setIsPickingImage(true);
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error('Photo library access is required to choose an image.');
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        quality: 1,
+        selectionLimit: 1,
+      });
+
+      if (result.canceled || result.assets.length === 0) return;
+      const pickedUri = result.assets[0]?.uri;
+      if (!pickedUri) {
+        throw new Error('No image selected.');
+      }
+
+      setCapturedImageUri(pickedUri.includes('://') ? pickedUri : normalizeFileUri(pickedUri));
+      hapticSuccess();
+    } catch (error) {
+      setCaptureError(toErrorMessage(error));
+      hapticError();
+    } finally {
+      setIsPickingImage(false);
+    }
+  }, [clearPendingAnalysis, isBusy]);
 
   const handleAnalyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
@@ -129,8 +195,10 @@ export default function FoodIndexScreen() {
   }, [analyzeFoodMutation, capturedImageUri, isAnalyzing, router, setPendingAnalysis]);
 
   useEffect(() => {
+    if (hasHydratedFromPendingRef.current) return;
     if (!capturedImageUri && pendingAnalysis?.imageUri) {
       setCapturedImageUri(pendingAnalysis.imageUri);
+      hasHydratedFromPendingRef.current = true;
     }
   }, [capturedImageUri, pendingAnalysis]);
 
@@ -189,6 +257,8 @@ export default function FoodIndexScreen() {
               device={device}
               isActive={isFocused && !capturedImageUri}
               photo={true}
+              enableZoomGesture={!capturedImageUri}
+              torch={flashEnabled && supportsTorch ? 'on' : 'off'}
             />
           )}
 
@@ -201,74 +271,36 @@ export default function FoodIndexScreen() {
 
             {capturedImageUri ? (
               <View style={styles.actionsRow}>
-                {process.env.EXPO_OS === 'ios' ? (
-                  <>
-                    <IOSHost style={styles.actionItem} matchContents useViewportSizeMeasurement>
-                      <IOSButton
-                        label="Retake"
-                        role="cancel"
-                        onPress={handleRetake}
-                        modifiers={[
-                          controlSize('large'),
-                          tint('rgba(255,255,255,0.2)'),
-                          buttonStyle('glassProminent'),
-                        ]}
-                      />
-                    </IOSHost>
-                    <IOSHost style={styles.actionItem} matchContents useViewportSizeMeasurement>
-                      <IOSButton
-                        label={isAnalyzing ? 'Analyzing...' : 'Analyze'}
-                        systemImage="sparkles"
-                        onPress={() => void handleAnalyzeCapturedImage()}
-                        modifiers={[
-                          controlSize('large'),
-                          tint(Theme.colors.accent),
-                          buttonStyle('glassProminent'),
-                        ]}
-                      />
-                    </IOSHost>
-                  </>
-                ) : process.env.EXPO_OS === 'android' ? (
-                  <>
-                    <AndroidHost style={styles.actionItem}>
-                      <AndroidButton onPress={handleRetake} variant="borderless" disabled={isBusy}>
-                        Retake
-                      </AndroidButton>
-                    </AndroidHost>
-                    <AndroidHost style={styles.actionItem}>
-                      <AndroidButton
-                        onPress={() => void handleAnalyzeCapturedImage()}
-                        disabled={isBusy}
-                      >
-                        {isAnalyzing ? 'Analyzing...' : 'Analyze'}
-                      </AndroidButton>
-                    </AndroidHost>
-                  </>
-                ) : (
-                  <>
-                    <Pressable
-                      style={[styles.actionItem, styles.actionButton, styles.secondaryButton]}
-                      onPress={handleRetake}
-                      disabled={isBusy}
-                    >
-                      <Text selectable style={styles.secondaryButtonLabel}>
-                        Retake
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.actionItem, styles.actionButton, styles.primaryButton]}
-                      onPress={() => void handleAnalyzeCapturedImage()}
-                      disabled={isBusy}
-                    >
-                      <Text selectable style={styles.primaryButtonLabel}>
-                        {isAnalyzing ? 'Analyzing...' : 'Analyze'}
-                      </Text>
-                    </Pressable>
-                  </>
-                )}
+                <PressableScale
+                  style={[ styles.actionButton, styles.secondaryButton, isBusy ? styles.disabledButton : null]}
+                  onPress={isBusy ? undefined : handleRetake}
+                >
+                  <Text selectable style={styles.secondaryButtonLabel}>
+                    Retake
+                  </Text>
+                </PressableScale>
+                <PressableScale
+                  style={[ styles.actionButton, styles.primaryButton, isBusy ? styles.disabledButton : null]}
+                  onPress={isBusy ? undefined : () => void handleAnalyzeCapturedImage()}
+                >
+                  {isAnalyzing ? (
+                    <ActivityIndicator size="small" color={Theme.colors.foundation} />
+                  ) : (
+                    <Text selectable style={styles.primaryButtonLabel}>
+                      Analyze
+                    </Text>
+                  )}
+                </PressableScale>
               </View>
             ) : (
               <View style={styles.captureContainer}>
+                <View style={styles.captureControlsRow}>
+                  <PressableScale
+                    style={[styles.galleryButton, isBusy ? styles.disabledButton : null]}
+                    onPress={isBusy ? undefined : () => void handlePickFromLibrary()}
+                  >
+                    <Ionicons name="images-outline" size={22} color="#FFFFFF" />
+                  </PressableScale>
                 <PressableScale
                   style={[
                     styles.shutterButton,
@@ -278,6 +310,8 @@ export default function FoodIndexScreen() {
                 >
                   <Ionicons name="radio-button-on" size={78} color="#FFFFFF" />
                 </PressableScale>
+                  <View style={styles.captureSpacer} />
+                </View>
               </View>
             )}
           </View>
@@ -350,12 +384,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  actionItem: {
-    minWidth: 136,
-  },
+
   captureContainer: {
     gap: 8,
     alignItems: 'center',
+  },
+  captureControlsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  galleryButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  captureSpacer: {
+    width: 46,
+    height: 46,
   },
   shutterButton: {
     width: 82,
@@ -365,12 +418,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionButton: {
-    minHeight: 44,
-    borderRadius: 12,
+
+    borderRadius: 20,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 36,
+    paddingVertical: 12,
     borderWidth: 1,
   },
   primaryButton: {
@@ -382,7 +436,7 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
   },
   primaryButtonLabel: {
-    color: Theme.colors.foundation,
+    color: 'white',
     fontSize: 15,
     fontWeight: '700',
   },

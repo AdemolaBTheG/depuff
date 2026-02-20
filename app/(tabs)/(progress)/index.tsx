@@ -1,19 +1,18 @@
+import Shimmer from '@/components/shimmer';
 import { dailyLogs, faceScans, foodLogs } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { hapticSelection } from '@/utils/haptics';
-import Shimmer from '@/components/shimmer';
 import { Chart, Host as IOSHost, Picker as IOSPicker, Text as IOSText, type ChartDataPoint } from '@expo/ui/swift-ui';
 import { pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { desc, sql } from 'drizzle-orm';
-import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const RANGE_OPTIONS = [7, 30, 90] as const;
-const SODIUM_GOAL_MG = 2300;
-const HYDRATION_GOAL_ML = 2500;
 
 type RangeDays = (typeof RANGE_OPTIONS)[number];
 
@@ -217,7 +216,7 @@ async function fetchBloatTrend(range: RangeDays): Promise<BloatTrendStats> {
   };
 }
 
-async function fetchSodiumTrend(range: RangeDays): Promise<SodiumTrendStats> {
+async function fetchSodiumTrend(range: RangeDays, sodiumGoalMg: number): Promise<SodiumTrendStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -241,7 +240,7 @@ async function fetchSodiumTrend(range: RangeDays): Promise<SodiumTrendStats> {
   const values = currentKeys.map((key) => sodiumByDay.get(key) ?? 0);
   const averageMg = values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const maxMg = values.length > 0 ? Math.max(...values) : 0;
-  const daysOverGoal = values.filter((value) => value >= SODIUM_GOAL_MG).length;
+  const daysOverGoal = values.filter((value) => value >= sodiumGoalMg).length;
   const loggedDays = values.filter((value) => value > 0).length;
 
   const points: ChartDataPoint[] = currentKeys.map((key) => ({
@@ -258,7 +257,7 @@ async function fetchSodiumTrend(range: RangeDays): Promise<SodiumTrendStats> {
   };
 }
 
-async function fetchHydrationTrend(range: RangeDays): Promise<HydrationTrendStats> {
+async function fetchHydrationTrend(range: RangeDays, waterGoalMl: number): Promise<HydrationTrendStats> {
   const db = useDbStore.getState().db;
   if (!db) {
     throw new Error('Database is not initialized');
@@ -281,7 +280,7 @@ async function fetchHydrationTrend(range: RangeDays): Promise<HydrationTrendStat
   const values = currentKeys.map((key) => hydrationByDay.get(key) ?? 0);
   const averageMl = values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const maxMl = values.length > 0 ? Math.max(...values) : 0;
-  const daysHitGoal = values.filter((value) => value >= HYDRATION_GOAL_ML).length;
+  const daysHitGoal = values.filter((value) => value >= waterGoalMl).length;
   const loggedDays = values.filter((value) => value > 0).length;
 
   const points: ChartDataPoint[] = currentKeys.map((key) => ({
@@ -424,6 +423,7 @@ function formatDelta(value: number | null): string {
 
 export default function ProgressIndex() {
   const db = useDbStore((state) => state.db);
+  const { waterGoalMl, sodiumGoalMg } = useSettingsStore();
   const [rangeIndex, setRangeIndex] = useState(0);
   const range = RANGE_OPTIONS[rangeIndex];
 
@@ -434,13 +434,13 @@ export default function ProgressIndex() {
   });
   const sodiumQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['progress-sodium-trend', range],
-    queryFn: () => fetchSodiumTrend(range),
+    queryKey: ['progress-sodium-trend', range, sodiumGoalMg],
+    queryFn: () => fetchSodiumTrend(range, sodiumGoalMg),
   });
   const hydrationQuery = useQuery({
     enabled: Boolean(db),
-    queryKey: ['progress-hydration-trend', range],
-    queryFn: () => fetchHydrationTrend(range),
+    queryKey: ['progress-hydration-trend', range, waterGoalMl],
+    queryFn: () => fetchHydrationTrend(range, waterGoalMl),
   });
   const riskMixQuery = useQuery({
     enabled: Boolean(db),
@@ -474,25 +474,25 @@ export default function ProgressIndex() {
     }));
   }, [trend]);
   const sodium = sodiumQuery.data;
-  const sodiumReferenceLines = [{ x: 'Goal', y: SODIUM_GOAL_MG, color: 'rgba(239, 68, 68, 0.9)' }];
+  const sodiumReferenceLines = [{ x: 'Goal', y: sodiumGoalMg, color: 'rgba(239, 68, 68, 0.9)' }];
   const sodiumFallbackBars = useMemo(() => {
     if (!sodium || sodium.points.length === 0) return [];
-    const maxValue = Math.max(SODIUM_GOAL_MG, ...sodium.points.map((point) => point.y), 1);
+    const maxValue = Math.max(sodiumGoalMg, ...sodium.points.map((point) => point.y), 1);
     return sodium.points.map((point) => ({
       label: String(point.x),
       height: (point.y / maxValue) * 76,
     }));
-  }, [sodium]);
+  }, [sodium, sodiumGoalMg]);
   const hydration = hydrationQuery.data;
-  const hydrationReferenceLines = [{ x: 'Goal', y: HYDRATION_GOAL_ML, color: 'rgba(34, 211, 238, 0.95)' }];
+  const hydrationReferenceLines = [{ x: 'Goal', y: waterGoalMl, color: 'rgba(34, 211, 238, 0.95)' }];
   const hydrationFallbackBars = useMemo(() => {
     if (!hydration || hydration.points.length === 0) return [];
-    const maxValue = Math.max(HYDRATION_GOAL_ML, ...hydration.points.map((point) => point.y), 1);
+    const maxValue = Math.max(waterGoalMl, ...hydration.points.map((point) => point.y), 1);
     return hydration.points.map((point) => ({
       label: String(point.x),
       height: (point.y / maxValue) * 76,
     }));
-  }, [hydration]);
+  }, [hydration, waterGoalMl]);
   const riskMix = riskMixQuery.data;
   const riskMixFallbackBars = useMemo(() => {
     if (!riskMix || riskMix.points.length === 0) return [];
@@ -1068,9 +1068,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   globalRangeLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.72)',
+    letterSpacing: 0.2,
   },
   kpiStrip: {
     flexDirection: 'row',
@@ -1116,14 +1117,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(96, 165, 250, 0.2)',
   },
   kpiLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: 'rgba(0, 0, 0, 0.5)',
     flex: 1,
     minWidth: 0,
+    letterSpacing: 0.3,
   },
   kpiValue: {
-    fontSize: 12,
+    fontSize: 17,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.86)',
     fontVariant: ['tabular-nums'],
@@ -1131,9 +1133,10 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.9)',
+    letterSpacing: 0.35,
   },
   rangePickerHost: {
     minWidth: 140,
@@ -1154,7 +1157,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 211, 238, 0.2)',
   },
   rangeFallbackChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: 'rgba(15, 23, 42, 0.58)',
   },
@@ -1173,13 +1176,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   metricValue: {
-    fontSize: 30,
+    fontSize: 34,
     fontWeight: '800',
     color: 'rgba(0, 0, 0, 0.92)',
     fontVariant: ['tabular-nums'],
   },
   metricSuffix: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     color: 'rgba(0, 0, 0, 0.5)',
   },
@@ -1189,7 +1192,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   deltaText: {
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -1220,12 +1223,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statChipLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: 'rgba(0, 0, 0, 0.48)',
   },
   statChipValue: {
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.74)',
     fontVariant: ['tabular-nums'],
@@ -1307,7 +1310,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   emptyChartText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     textAlign: 'center',
     color: 'rgba(0, 0, 0, 0.48)',
@@ -1334,7 +1337,7 @@ const styles = StyleSheet.create({
     minHeight: 4,
   },
   fallbackBarLabel: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
     color: 'rgba(0, 0, 0, 0.5)',
   },
@@ -1427,18 +1430,18 @@ const styles = StyleSheet.create({
   },
   topFoodName: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: 'rgba(0, 0, 0, 0.82)',
   },
   topFoodCount: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.55)',
     fontVariant: ['tabular-nums'],
   },
   topFoodMeta: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
     color: 'rgba(0, 0, 0, 0.58)',
     fontVariant: ['tabular-nums'],

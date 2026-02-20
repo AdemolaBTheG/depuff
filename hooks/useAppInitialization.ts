@@ -1,4 +1,5 @@
 import { useDbStore } from '@/stores/dbStore';
+import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { OneSignal } from 'react-native-onesignal';
@@ -60,6 +61,11 @@ export function useAppInitialization() {
     (async () => {
       try {
         await initializeDb();
+        try {
+          await syncHydrationWidgetSnapshot();
+        } catch (widgetError) {
+          console.warn('Hydration widget sync failed during init', widgetError);
+        }
         await configurePurchases();
         await initOneSignal();
         await syncIdsToRevenueCat();

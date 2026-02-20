@@ -1,46 +1,66 @@
 import * as schema from "@/db/schema";
-// import migrations from "@/drizzle/migrations";
+import migrations from "@/drizzle/migrations";
 import type { ExpoSQLiteDatabase } from "drizzle-orm/expo-sqlite";
 import { drizzle } from "drizzle-orm/expo-sqlite";
-// import { migrate } from "drizzle-orm/expo-sqlite/migrator";
+import { migrate } from "drizzle-orm/expo-sqlite/migrator";
 import { openDatabaseSync } from "expo-sqlite";
 import { create } from "zustand";
 
-const SCHEMA_BOOTSTRAP_SQL = `
-PRAGMA foreign_keys = ON;
+function hasLegacyTables(expoDb: ReturnType<typeof openDatabaseSync>): boolean {
+    const tables = expoDb.getAllSync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('daily_logs', 'face_scans', 'food_logs')"
+    );
+    return tables.length > 0;
+}
 
-CREATE TABLE IF NOT EXISTS daily_logs (
-  date text PRIMARY KEY NOT NULL,
-  water_intake integer DEFAULT 0,
-  routine_completed integer DEFAULT false,
-  daily_bloat_score integer,
-  sodium_status text DEFAULT 'safe'
-);
+function ensureLegacyColumns(expoDb: ReturnType<typeof openDatabaseSync>) {
+    const dailyLogColumns = expoDb.getAllSync<{ name: string }>(`PRAGMA table_info(daily_logs);`);
+    const hasActionableSteps = dailyLogColumns.some((column) => column.name === "actionable_steps");
+    if (!hasActionableSteps) {
+        expoDb.execSync("ALTER TABLE daily_logs ADD COLUMN actionable_steps text;");
+    }
+}
 
-CREATE TABLE IF NOT EXISTS face_scans (
-  id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  created_at text DEFAULT CURRENT_TIMESTAMP NOT NULL,
-  score integer NOT NULL,
-  feedback text,
-  flagged_areas text,
-  local_image_uri text
-);
+function markInitialMigrationApplied(expoDb: ReturnType<typeof openDatabaseSync>) {
+    expoDb.execSync(`
+        CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+            id SERIAL PRIMARY KEY,
+            hash text NOT NULL,
+            created_at numeric
+        );
+    `);
 
-CREATE TABLE IF NOT EXISTS food_logs (
-  id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-  log_date text NOT NULL,
-  created_at text DEFAULT CURRENT_TIMESTAMP,
-  food_name text,
-  sodium_estimate_mg integer,
-  bloat_risk_level text,
-  ai_reasoning text,
-  local_image_uri text,
-  FOREIGN KEY (log_date) REFERENCES daily_logs(date) ON UPDATE no action ON DELETE no action
-);
-`;
+    const existingMigrationRows = expoDb.getAllSync<{ created_at: number }>(
+        'SELECT created_at FROM "__drizzle_migrations" ORDER BY created_at DESC LIMIT 1'
+    );
 
-function ensureSchema(expoDb: ReturnType<typeof openDatabaseSync>) {
-    expoDb.execSync(SCHEMA_BOOTSTRAP_SQL);
+    if (existingMigrationRows.length > 0) return;
+
+    const journalEntries = migrations?.journal?.entries ?? [];
+    const lastEntry = journalEntries[journalEntries.length - 1];
+    if (!lastEntry) return;
+
+    expoDb.execSync(
+        `INSERT INTO "__drizzle_migrations" ("hash", "created_at") VALUES ('', ${Number(lastEntry.when)});`
+    );
+}
+
+async function runMigrationsWithLegacyFallback(
+    db: ExpoSQLiteDatabase<typeof schema>,
+    expoDb: ReturnType<typeof openDatabaseSync>
+) {
+    try {
+        await migrate(db, migrations);
+        return;
+    } catch (error) {
+        if (!hasLegacyTables(expoDb)) {
+            throw error;
+        }
+
+        ensureLegacyColumns(expoDb);
+        markInitialMigrationApplied(expoDb);
+        await migrate(db, migrations);
+    }
 }
 
 interface DatabaseState {
@@ -66,7 +86,7 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
 
     initializeDb: async (options = {}) => {
         const {
-            name = "debloat.db",
+            name = "nobloat.db",
             useNewConnection = false,
             enableChangeListener = true,
         } = options;
@@ -83,10 +103,8 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
                 enableChangeListener,
             });
 
-            ensureSchema(expoDb);
-
             const db = drizzle(expoDb, { schema });
-            // await migrate(db, migrations);
+            await runMigrationsWithLegacyFallback(db, expoDb);
 
             set({ expoDb, db, isLoading: false });
         } catch (e) {
@@ -112,9 +130,8 @@ export const useDbStore = create<DatabaseState>((set, get) => ({
                 throw new Error("Failed to create new database instance");
             }
 
-            ensureSchema(newExpoDb);
-
             const newDb = drizzle(newExpoDb, { schema });
+            await runMigrationsWithLegacyFallback(newDb, newExpoDb);
 
             set({ expoDb: newExpoDb, db: newDb });
         } catch (error) {

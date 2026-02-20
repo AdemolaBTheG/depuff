@@ -22,7 +22,7 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, PlatformColor, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -456,9 +456,9 @@ export default function Result() {
         options={{
           title: 'Report',
           headerShown: true,
-          headerShadowVisible: false,
           headerTransparent: isLiquidGlassAvailable(),
           headerStyle: { backgroundColor: isLiquidGlassAvailable() ? 'transparent' : '#F2F2F7' },
+          contentStyle: {backgroundColor: PlatformColor('systemGroupedBackground')}
         }}
       />
       {process.env.EXPO_OS === 'ios' ? (

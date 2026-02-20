@@ -1,12 +1,14 @@
 import { useFoodAnalysisStore } from '@/stores/foodAnalysisStore';
+import { Theme } from '@/constants/Theme';
 import { persistConfirmedFoodAnalysis } from '@/utils/food-intake';
 import { hapticError, hapticImpact, hapticSelection, hapticSuccess } from '@/utils/haptics';
 import { Button as AndroidButton, Host as AndroidHost } from '@expo/ui/jetpack-compose';
-import { Button as IOSButton, Host as IOSHost } from '@expo/ui/swift-ui';
+import { Button as IOSButton, Host as IOSHost, HStack as IOSHStack, Spacer as IOSSpacer } from '@expo/ui/swift-ui';
 import { buttonStyle, controlSize, disabled as iosDisabled, tint } from '@expo/ui/swift-ui/modifiers';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -133,7 +135,7 @@ export default function FoodResultScreen() {
   const handleCancel = useCallback(() => {
     hapticSelection();
     clearPendingAnalysis();
-    router.back();
+    router.replace('/(food)' as never);
   }, [clearPendingAnalysis, router]);
 
   return (
@@ -208,54 +210,54 @@ export default function FoodResultScreen() {
           ) : null}
 
           {/* 4. Action Footer */}
-          <View style={styles.actionsRow}>
+          <View style={styles.resultActionsContainer}>
             {process.env.EXPO_OS === 'ios' ? (
-              <>
-                <IOSHost style={styles.nativeActionItem} matchContents useViewportSizeMeasurement>
+              <IOSHost style={styles.iosActionsHost} matchContents useViewportSizeMeasurement>
+                <IOSHStack spacing={12}>
                   <IOSButton
-                    label="Discard"
+                    label="New Scan"
+                    systemImage="camera.viewfinder"
                     role="cancel"
                     onPress={handleCancel}
                     modifiers={[
                       iosDisabled(isSaving),
                       controlSize('large'),
-                      tint('rgba(255,255,255,0.2)'),
-                      buttonStyle('glassProminent'),
+                      tint('#475569'),
+                      buttonStyle(isLiquidGlassAvailable() ? 'glass' : 'bordered'),
                     ]}
                   />
-                </IOSHost>
-                <IOSHost style={styles.nativeActionItem} matchContents useViewportSizeMeasurement>
+                  <IOSSpacer />
                   <IOSButton
-                    label={isSaving ? 'Saving...' : 'Log to Daily Total'}
-                    systemImage="checkmark.circle"
+                    label={isSaving ? 'Saving...' : 'Done'}
+                    systemImage="checkmark"
                     onPress={() => void handleConfirm()}
                     modifiers={[
                       iosDisabled(!canConfirm),
+                      buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
+                      tint(Theme.colors.accent),
                       controlSize('large'),
-                      tint('rgba(34, 211, 238, 1)'),
-                      buttonStyle('borderedProminent'),
                     ]}
                   />
-                </IOSHost>
-              </>
+                </IOSHStack>
+              </IOSHost>
             ) : process.env.EXPO_OS === 'android' ? (
-              <>
+              <View style={styles.actionsRow}>
                 <AndroidHost style={styles.nativeActionItem}>
                   <AndroidButton onPress={handleCancel} variant="borderless" disabled={isSaving}>
-                    Discard
+                    New Scan
                   </AndroidButton>
                 </AndroidHost>
                 <AndroidHost style={styles.nativeActionItem}>
                   <AndroidButton onPress={() => void handleConfirm()} disabled={!canConfirm}>
-                    {isSaving ? 'Saving...' : 'Log to Daily Total'}
+                    {isSaving ? 'Saving...' : 'Done'}
                   </AndroidButton>
                 </AndroidHost>
-              </>
+              </View>
             ) : (
-              <>
+              <View style={styles.actionsRow}>
                 <Pressable style={[styles.actionButton, styles.secondaryButton]} onPress={handleCancel}>
                   <Text selectable style={styles.secondaryButtonLabel}>
-                    Discard
+                    New Scan
                   </Text>
                 </Pressable>
                 <Pressable
@@ -264,10 +266,10 @@ export default function FoodResultScreen() {
                   disabled={!canConfirm}
                 >
                   <Text selectable style={styles.primaryButtonLabel}>
-                    {isSaving ? 'Saving...' : 'Log to Daily Total'}
+                    {isSaving ? 'Saving...' : 'Done'}
                   </Text>
                 </Pressable>
-              </>
+              </View>
             )}
           </View>
         </>
@@ -395,7 +397,13 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  resultActionsContainer: {
+    width: '100%',
     marginTop: 8,
+  },
+  iosActionsHost: {
+    width: '100%',
   },
   nativeActionItem: {
     flex: 1,
