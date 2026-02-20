@@ -15,6 +15,11 @@ export type BridgeRoutineVariant =
   | 'deep'
   | 'restore';
 export type BridgeFoodRisk = 'low' | 'moderate' | 'high' | 'extreme';
+export type BridgeActionItem = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
 
 export type AnalyzeFaceParams = {
   imageUri?: string;
@@ -35,6 +40,7 @@ export type AnalyzeFaceResponse = {
   focus_areas: string[];
   analysis_summary: string;
   suggested_protocol: BridgeRoutineProtocol;
+  actionable_steps: BridgeActionItem[];
 };
 
 export type AnalyzeFoodParams = {
@@ -112,6 +118,50 @@ function normalizeImageUri(uri: string): string {
   return uri.startsWith('file://') ? uri : `file://${uri}`;
 }
 
+function sanitizeActionItems(input: unknown): BridgeActionItem[] {
+  if (!Array.isArray(input)) return [];
+
+  const items = input
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const text = item.trim();
+        if (!text) return null;
+        return {
+          id: `step-${index + 1}`,
+          text,
+          completed: false,
+        } satisfies BridgeActionItem;
+      }
+
+      if (typeof item === 'object' && item !== null) {
+        const record = item as {
+          id?: unknown;
+          text?: unknown;
+          completed?: unknown;
+        };
+        const text = typeof record.text === 'string' ? record.text.trim() : '';
+        if (!text) return null;
+
+        const id =
+          typeof record.id === 'string' && record.id.trim()
+            ? record.id.trim()
+            : `step-${index + 1}`;
+
+        return {
+          id,
+          text,
+          completed: typeof record.completed === 'boolean' ? record.completed : false,
+        } satisfies BridgeActionItem;
+      }
+
+      return null;
+    })
+    .filter((item): item is BridgeActionItem => Boolean(item))
+    .slice(0, 8);
+
+  return items;
+}
+
 async function imageToBase64(imageUri: string): Promise<string> {
   const normalizedUri = normalizeImageUri(imageUri);
   return new File(normalizedUri).base64();
@@ -186,6 +236,7 @@ export async function analyzeFace(params: AnalyzeFaceParams): Promise<AnalyzeFac
     locale: normalizeLocale(response.locale),
     score: clampScore(response.score),
     focus_areas: Array.isArray(response.focus_areas) ? response.focus_areas : [],
+    actionable_steps: sanitizeActionItems(response.actionable_steps),
   };
 }
 

@@ -25,6 +25,11 @@ type FoodRequestBody = {
 type SupportedLocale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
 type RoutineProtocol = 'lymphatic_deep_drainage' | 'standard_drainage' | 'quick_sculpt';
 type WeekdayVariant = 'reset' | 'boost' | 'sculpt' | 'release' | 'balance' | 'deep' | 'restore';
+type ActionableStep = {
+  id: string;
+  text: string;
+  completed: boolean;
+};
 
 const PORT = Number(process.env.PORT ?? 8080);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -144,7 +149,7 @@ const FACE_SYSTEM_INSTRUCTION = [
   '1) Periorbital puffiness (smoothness vs. sharp eye creases).',
   '2) Jawline definition (shadow contrast on the mandible).',
   '3) Asymmetry indicating sleep-side fluid pooling.',
-  "Return only a JSON object with 'score' (0-100), 'focus_areas' (array), and 'summary' (1 sentence).",
+  "Return only a JSON object with keys: 'score' (0-100), 'focus_areas' (array), 'summary' (1 sentence), 'actionable_steps' (array of 3-5 short practical actions).",
 ].join('\n');
 
 const FOOD_SYSTEM_INSTRUCTION = [
@@ -208,8 +213,9 @@ app.post('/v1/analyze/face', async (req: Request, res: Response) => {
       `is_morning: ${String(body.metadata?.is_morning ?? true)}`,
       `last_water_intake_ml: ${String(body.metadata?.last_water_intake_ml ?? 0)}`,
       `Write 'summary' in ${languageLabel}.`,
+      `Write 'actionable_steps' in ${languageLabel}.`,
       "Keep 'focus_areas' canonical short English labels (for stable app mapping).",
-      "Output JSON only: {\"score\":number,\"focus_areas\":string[],\"summary\":string}",
+      "Output JSON only: {\"score\":number,\"focus_areas\":string[],\"summary\":string,\"actionable_steps\":string[]}",
     ].join('\n');
 
     const modelPayload = await callGeminiJson({
@@ -225,6 +231,11 @@ app.post('/v1/analyze/face', async (req: Request, res: Response) => {
     const summary = String(modelPayload.summary ?? 'Facial fluid retention pattern analyzed.');
     const status = scoreToStatus(score);
     const suggestedProtocol = scoreToProtocol(score);
+    const actionableSteps = buildActionItems(
+      sanitizeStringArray(modelPayload.actionable_steps),
+      score,
+      locale
+    );
 
     await respondWithDelay(startedAt, res, 200, {
       locale,
@@ -233,6 +244,7 @@ app.post('/v1/analyze/face', async (req: Request, res: Response) => {
       focus_areas: focusAreas,
       analysis_summary: summary,
       suggested_protocol: suggestedProtocol,
+      actionable_steps: actionableSteps,
     });
   } catch (error) {
     await respondWithDelay(startedAt, res, 500, {
@@ -477,6 +489,92 @@ function sanitizeStringArray(input: unknown): string[] {
     .map((item) => String(item).trim())
     .filter(Boolean)
     .slice(0, 8);
+}
+
+function buildActionItems(
+  rawSteps: string[],
+  score: number,
+  locale: SupportedLocale
+): ActionableStep[] {
+  const dedupedSteps = [...new Set(rawSteps.map((item) => item.trim()).filter(Boolean))].slice(0, 5);
+  const steps = dedupedSteps.length > 0 ? dedupedSteps : getFallbackActionTexts(score, locale);
+
+  return steps.map((text, index) => {
+    const hash = crypto.createHash('sha1').update(`${text}-${index}`).digest('hex').slice(0, 10);
+    return {
+      id: `scan-step-${hash}`,
+      text,
+      completed: false,
+    };
+  });
+}
+
+function getFallbackActionTexts(score: number, locale: SupportedLocale): string[] {
+  const fallbackByLocale: Record<SupportedLocale, string[]> = {
+    en: [
+      'Drink 500ml of water in the next 30 minutes.',
+      'Do a 5-minute gentle lymphatic sweep around eyes and jawline.',
+      'Keep sodium low for your next meal.',
+    ],
+    es: [
+      'Bebe 500ml de agua en los próximos 30 minutos.',
+      'Haz un drenaje linfático suave de 5 minutos en ojos y mandíbula.',
+      'Mantén bajo el sodio en tu próxima comida.',
+    ],
+    fr: [
+      "Bois 500ml d'eau dans les 30 prochaines minutes.",
+      'Fais 5 minutes de drainage lymphatique doux autour des yeux et de la mâchoire.',
+      'Limite le sodium pour ton prochain repas.',
+    ],
+    de: [
+      'Trinke in den nächsten 30 Minuten 500ml Wasser.',
+      'Mache 5 Minuten sanfte Lymphmassage um Augen und Kiefer.',
+      'Halte Natrium bei der nächsten Mahlzeit niedrig.',
+    ],
+    ja: [
+      '30分以内に500mlの水を飲んでください。',
+      '目元とあご周りを5分間やさしくリンパケアしてください。',
+      '次の食事は塩分を控えてください。',
+    ],
+    zh: [
+      '请在30分钟内喝500ml水。',
+      '对眼周和下颌进行5分钟轻柔淋巴按摩。',
+      '下一餐尽量控制盐分摄入。',
+    ],
+  };
+
+  const base = [...fallbackByLocale[locale]];
+  if (score >= 70) {
+    base.unshift(
+      locale === 'en'
+        ? 'Use your deep drainage routine today.'
+        : locale === 'es'
+          ? 'Haz tu rutina de drenaje profundo hoy.'
+          : locale === 'fr'
+            ? "Fais ta routine de drainage profond aujourd'hui."
+            : locale === 'de'
+              ? 'Nutze heute deine tiefe Drainage-Routine.'
+              : locale === 'ja'
+                ? '今日はディープドレナージュルーティンを行ってください。'
+                : '今天请执行深层引流方案。'
+    );
+  } else if (score < 30) {
+    base.unshift(
+      locale === 'en'
+        ? 'Use your quick sculpt routine today.'
+        : locale === 'es'
+          ? 'Haz tu rutina rápida de sculpt hoy.'
+          : locale === 'fr'
+            ? "Fais ta routine quick sculpt aujourd'hui."
+            : locale === 'de'
+              ? 'Nutze heute deine Quick-Sculpt-Routine.'
+              : locale === 'ja'
+                ? '今日はクイックスカルプトルーティンを行ってください。'
+                : '今天请执行快速塑形方案。'
+    );
+  }
+
+  return base.slice(0, 5);
 }
 
 function sanitizeRiskLevel(input: unknown): 'low' | 'moderate' | 'high' | 'extreme' {

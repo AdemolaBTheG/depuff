@@ -1,4 +1,4 @@
-import { dailyLogs, faceScans } from '@/db/schema';
+import { dailyLogs, faceScans, type ActionItem } from '@/db/schema';
 import { analyzeFace, type AnalyzeFaceResponse, type BridgeRoutineProtocol } from '@/services/bridge-api';
 import { useDbStore } from '@/stores/dbStore';
 import { File } from 'expo-file-system';
@@ -22,6 +22,25 @@ export type PersistScanParams = {
 
 function toDailyDate(input = new Date()): string {
   return input.toISOString().slice(0, 10);
+}
+
+function normalizeActionableSteps(steps: ActionItem[] | undefined): ActionItem[] {
+  if (!Array.isArray(steps)) return [];
+
+  return steps
+    .map((item, index) => {
+      const text = String(item?.text ?? '').trim();
+      if (!text) return null;
+      const id =
+        typeof item?.id === 'string' && item.id.trim().length > 0 ? item.id.trim() : `step-${index + 1}`;
+      return {
+        id,
+        text,
+        completed: Boolean(item?.completed),
+      } satisfies ActionItem;
+    })
+    .filter((item): item is ActionItem => Boolean(item))
+    .slice(0, 8);
 }
 
 export function selectRoutineFromScore(score: number): ScanRoutineKey {
@@ -65,11 +84,13 @@ export async function persistScanResult({
     .values({
       date: dailyDate,
       dailyBloatScore: result.score,
+      actionableSteps: normalizeActionableSteps(result.actionable_steps),
     })
     .onConflictDoUpdate({
       target: dailyLogs.date,
       set: {
         dailyBloatScore: result.score,
+        actionableSteps: normalizeActionableSteps(result.actionable_steps),
       },
     });
 }
