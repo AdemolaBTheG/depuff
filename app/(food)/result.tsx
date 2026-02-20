@@ -1,5 +1,6 @@
 import { useFoodAnalysisStore } from '@/stores/foodAnalysisStore';
 import { Theme } from '@/constants/Theme';
+import type { DayFoodEntry } from '@/hooks/useDayStatus';
 import { persistConfirmedFoodAnalysis } from '@/utils/food-intake';
 import { hapticError, hapticImpact, hapticSelection, hapticSuccess } from '@/utils/haptics';
 import { Button as AndroidButton, Host as AndroidHost } from '@expo/ui/jetpack-compose';
@@ -115,6 +116,29 @@ export default function FoodResultScreen() {
 
     try {
       const { logDate } = await persistConfirmedFoodAnalysis(pendingAnalysis);
+      const optimisticFoodEntry: DayFoodEntry = {
+        id: -Date.now(),
+        foodName: pendingAnalysis.result.food_name,
+        sodiumEstimateMg: pendingAnalysis.result.sodium_mg,
+        bloatRiskLevel: pendingAnalysis.result.bloat_risk,
+        aiReasoning: pendingAnalysis.result.counter_measure,
+        localImageUri: pendingAnalysis.imageUri,
+        createdAt: pendingAnalysis.capturedAt,
+      };
+
+      queryClient.setQueryData<DayFoodEntry[]>(['day-foods', logDate, 3], (current) => {
+        const existing = current ?? [];
+        const deduped = existing.filter(
+          (item) =>
+            !(
+              item.createdAt === optimisticFoodEntry.createdAt &&
+              item.foodName === optimisticFoodEntry.foodName &&
+              item.sodiumEstimateMg === optimisticFoodEntry.sodiumEstimateMg
+            )
+        );
+        return [optimisticFoodEntry, ...deduped].slice(0, 3);
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['day-balance', logDate] }),
         queryClient.invalidateQueries({ queryKey: ['day-status', logDate] }),

@@ -11,7 +11,7 @@ export default function Paywall() {
             <RevenueCatUI.Paywall
                 onDismiss={() => {
                     posthog?.capture('Dismissed paywall');
-                    router.replace('/offeringPaywall');
+                    router.replace('/paywall');
                 }}
                 onPurchaseCompleted={() => {
                     posthog?.capture('Completed purchase');

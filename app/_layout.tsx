@@ -46,6 +46,7 @@ export default function RootLayout() {
                   options={{ headerShown: false, presentation: 'fullScreenModal' }}
                 />
                 <Stack.Screen name="(food)" options={{ headerShown: false,presentation:'modal' }} />
+                <Stack.Screen name="(paywalls)" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
                 <Stack.Screen name="log"   options={{
           presentation: 'formSheet',
           headerTransparent: true,

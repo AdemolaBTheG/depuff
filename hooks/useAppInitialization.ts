@@ -1,5 +1,5 @@
-import { useDbStore } from '@/stores/dbStore';
 import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
+import { useDbStore } from '@/stores/dbStore';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { OneSignal } from 'react-native-onesignal';
@@ -18,7 +18,7 @@ export function useAppInitialization() {
 
     const configurePurchases = async () => {
       if (Platform.OS === 'ios' && rc_apple_api_key) {
-        Purchases.configure({ apiKey: rc_apple_api_key });
+        Purchases.configure({ apiKey: 'test_wQPfxhLUBqJNosuiPjgOdJYhNrG' });
         const configured = await Purchases.isConfigured();
         if (configured) {
           await Purchases.enableAdServicesAttributionTokenCollection();

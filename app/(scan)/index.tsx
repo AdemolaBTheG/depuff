@@ -1,7 +1,12 @@
 import Shimmer from '@/components/shimmer';
+import { FREE_DAILY_FACE_SCANS, PAYWALL_ROUTE } from '@/constants/gating';
 import { Theme } from '@/constants/Theme';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { faceScans } from '@/db/schema';
 import { useAnalyzeFaceMutation } from '@/hooks/useBridgeApi';
+import { toDailyDate } from '@/hooks/useDayStatus';
 import { BridgeApiError } from '@/services/bridge-api';
+import { useDbStore } from '@/stores/dbStore';
 import {
   hapticError,
   hapticImpact,
@@ -12,10 +17,15 @@ import {
   stopAnalyzingHaptic,
 } from '@/utils/haptics';
 import { persistScanResult } from '@/utils/scan-intake';
+import { Button as IOSButton, Host as IOSHost } from '@expo/ui/swift-ui';
+import { buttonStyle, controlSize, tint } from '@expo/ui/swift-ui/modifiers';
+import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { Canvas, FillType, Path, rect, Skia } from '@shopify/react-native-skia';
+import { useQuery } from '@tanstack/react-query';
+import { sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -200,6 +210,8 @@ function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
 
 export default function ScanIndexScreen() {
   const router = useRouter();
+  const db = useDbStore((state) => state.db);
+  const { isPro } = useSubscription();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { hasPermission, requestPermission } = useCameraPermission();
@@ -219,11 +231,32 @@ export default function ScanIndexScreen() {
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [isPersisting, setIsPersisting] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const todayDateKey = toDailyDate(new Date());
 
   const analyzeFaceMutation = useAnalyzeFaceMutation();
   const supportsFlashCapture = Boolean(device?.hasFlash);
   const supportsTorch = Boolean(device?.hasTorch);
   const canUseFlashControl = supportsFlashCapture || supportsTorch;
+  const todayScanCountQuery = useQuery({
+    enabled: Boolean(db) && !isPro,
+    queryKey: ['scan-limit-count', todayDateKey],
+    queryFn: async () => {
+      if (!db) return 0;
+      const [row] = await db
+        .select({
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(faceScans)
+        .where(sql`substr(${faceScans.createdAt}, 1, 10) = ${todayDateKey}`);
+      return row?.count ?? 0;
+    },
+  });
+  const isDailyScanLimitReached = !isPro && (todayScanCountQuery.data ?? 0) >= FREE_DAILY_FACE_SCANS;
+
+  const handleOpenPaywall = useCallback(() => {
+    hapticSelection();
+    router.push(PAYWALL_ROUTE as never);
+  }, [router]);
 
   const faceDetectionOptions = useMemo<FrameFaceDetectionOptions>(
     () => ({
@@ -265,7 +298,6 @@ export default function ScanIndexScreen() {
   }, [clearCapture]);
 
   const isAnalyzing = analyzeFaceMutation.isPending || isPersisting;
-  const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
 
   useEffect(() => {
     if (!canUseFlashControl && flashEnabled) {
@@ -276,7 +308,7 @@ export default function ScanIndexScreen() {
   const screenOptions = useMemo(
     () => ({
       headerShown: true,
-      title: 'Face Scan',
+      headerTitle: '',
       headerTransparent: true,
       headerStyle: { backgroundColor: 'transparent' },
       unstable_headerLeftItems: () => [
@@ -294,6 +326,11 @@ export default function ScanIndexScreen() {
 
   const analyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
+    if (isDailyScanLimitReached) {
+      setAnalysisError('Daily scan limit reached. Upgrade to Pro for unlimited scans.');
+      handleOpenPaywall();
+      return;
+    }
     setAnalysisError(null);
     hapticImpact('light');
 
@@ -333,7 +370,7 @@ export default function ScanIndexScreen() {
     } finally {
       setIsPersisting(false);
     }
-  }, [analyzeFaceMutation, capturedAt, capturedImageUri, isAnalyzing, router]);
+  }, [analyzeFaceMutation, capturedAt, capturedImageUri, handleOpenPaywall, isAnalyzing, isDailyScanLimitReached, router]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -393,6 +430,14 @@ export default function ScanIndexScreen() {
   const handleFacesDetected = useCallback(
     async (faces: Face[], frame: Frame) => {
       if (capturedImageUri) return;
+      if (isDailyScanLimitReached) {
+        stableFramesRef.current = 0;
+        setGate({
+          ...INITIAL_GATE_STATE,
+          guidance: 'Daily free scan limit reached',
+        });
+        return;
+      }
 
       const faceCount = faces.length;
       const primaryFace = faces[0];
@@ -453,11 +498,12 @@ export default function ScanIndexScreen() {
         await autoCapture();
       }
     },
-    [autoCapture, capturedImageUri, isCapturing]
+    [autoCapture, capturedImageUri, isCapturing, isDailyScanLimitReached]
   );
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={screenOptions} />
 
       {!hasPermission ? (
         <View style={styles.centered}>
@@ -513,9 +559,13 @@ export default function ScanIndexScreen() {
           <View style={styles.overlay}>
             {capturedImageUri ? (
               <>
-               
-
                 <View style={[styles.previewActionsContainer, { paddingBottom: insets.bottom + 10 }]}>
+                  {isDailyScanLimitReached ? (
+                    <Text style={styles.statusText}>
+                      Daily scan limit reached. Upgrade to Pro for unlimited scans.
+                    </Text>
+                  ) : null}
+                  {analysisError ? <Text style={styles.statusText}>{analysisError}</Text> : null}
                   <View style={styles.previewActions}>
                     <PressableScale
                       style={[
@@ -533,14 +583,16 @@ export default function ScanIndexScreen() {
                         styles.previewActionItem,
                         styles.actionButton,
                         styles.primaryButton,
-                        isAnalyzing ? styles.disabledButton : null,
+                        isAnalyzing || isDailyScanLimitReached ? styles.disabledButton : null,
                       ]}
-                      onPress={isAnalyzing ? undefined : analyzeCapturedImage}
+                      onPress={isAnalyzing ? undefined : isDailyScanLimitReached ? handleOpenPaywall : analyzeCapturedImage}
                     >
                       {isAnalyzing ? (
                         <ActivityIndicator size="small" color={Theme.colors.foundation} />
                       ) : (
-                        <Text style={styles.primaryButtonLabel}>Analyze</Text>
+                        <Text style={styles.primaryButtonLabel}>
+                          {isDailyScanLimitReached ? 'Upgrade' : 'Analyze'}
+                        </Text>
                       )}
                     </PressableScale>
                   </View>
@@ -549,14 +601,51 @@ export default function ScanIndexScreen() {
             ) : (
               <>
                 <View style={styles.card}>
-                  <Text style={styles.guidance}>{gate.guidance}</Text>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${captureProgress * 100}%` }]} />
-                  </View>
-                  <Text style={styles.meta}>
-                    Faces {gate.faceCount} | Ratio {(gate.faceRatio * 100).toFixed(0)}% | Pose y
-                    {gate.yaw.toFixed(0)} p{gate.pitch.toFixed(0)} r{gate.roll.toFixed(0)}
-                  </Text>
+                  {isDailyScanLimitReached ? (
+                    <View style={styles.paywallContainer}>
+                      <View style={styles.paywallHeader}>
+                        <Ionicons name="sparkles" size={18} color={Theme.colors.accent} />
+                        <Text style={styles.paywallTitle}>Free Scan Used</Text>
+                      </View>
+                      <Text style={styles.paywallText}>
+                        You've used your daily diagnostic scan. Unlock Pro for unlimited AI face tracking and deeper insights.
+                      </Text>
+                      {process.env.EXPO_OS === 'ios' ? (
+                        <View style={styles.paywallButtonContainer}>
+                          <IOSHost matchContents useViewportSizeMeasurement>
+                            <IOSButton
+                              label="Unlock Pro"
+                              systemImage="lock.open.fill"
+                              onPress={handleOpenPaywall}
+                              modifiers={[
+                                controlSize('regular'),
+                                tint(Theme.colors.accent),
+                                buttonStyle('borderedProminent'),
+                              ]}
+                            />
+                          </IOSHost>
+                        </View>
+                      ) : (
+                        <PressableScale
+                          style={styles.paywallButtonFallback}
+                          onPress={handleOpenPaywall}
+                        >
+                          <Text style={styles.paywallButtonFallbackLabel}>Unlock Pro</Text>
+                        </PressableScale>
+                      )}
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.guidance}>{gate.guidance}</Text>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${captureProgress * 100}%` }]} />
+                      </View>
+                      <Text style={styles.meta}>
+                        Faces {gate.faceCount} | Ratio {(gate.faceRatio * 100).toFixed(0)}% | Pose y
+                        {gate.yaw.toFixed(0)} p{gate.pitch.toFixed(0)} r{gate.roll.toFixed(0)}
+                      </Text>
+                    </>
+                  )}
                 </View>
 
                 {(isCapturing || captureError) && (
@@ -599,6 +688,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  paywallContainer: {
+    gap: 8,
+  },
+  paywallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paywallTitle: {
+    color: 'white',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  paywallText: {
+    color: Theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  paywallButtonContainer: {
+    alignSelf: 'flex-start',
+  },
+  paywallButtonFallback: {
+    alignSelf: 'flex-start',
+    backgroundColor: Theme.colors.accent,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  paywallButtonFallbackLabel: {
+    color: Theme.colors.foundation,
+    fontSize: 15,
+    fontWeight: '700',
   },
   button: {
     marginTop: 12,
@@ -693,9 +817,11 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.glass1,
     borderColor: Theme.colors.border,
     borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    padding: 16,
     gap: 8,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
   },
   guidance: {
     color: Theme.colors.textPrimary,

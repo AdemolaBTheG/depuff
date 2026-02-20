@@ -1,6 +1,8 @@
 import { AIChecklist } from '@/components/ai-checklist';
+import { PAYWALL_ROUTE } from '@/constants/gating';
 import { CounterControls } from '@/components/daily-steps/counter-controls';
 import { DigitalCounter } from '@/components/daily-steps/digital-counter';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { dailyLogs, faceScans } from '@/db/schema';
 import {
   getDayStatus,
@@ -389,6 +391,7 @@ const RecentFoodListItem = React.memo(function RecentFoodListItem({
 
 export default function HomeIndex() {
   const router = useRouter();
+  const { isPro } = useSubscription();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const db = useDbStore((state) => state.db);
@@ -441,6 +444,10 @@ export default function HomeIndex() {
       duration: 3,
     });
   }, []);
+  const handleOpenChecklistUpgrade = useCallback(() => {
+    hapticSelection();
+    router.push(PAYWALL_ROUTE as never);
+  }, [router]);
 
   const dayQueries = useQueries({
     queries: recentDates.map((date) => ({
@@ -838,8 +845,43 @@ export default function HomeIndex() {
         )}
       </View>
 
-      {/* AI Action Plan is pushed to the top right below the Scan Result */}
-      <AIChecklist items={actionableSteps} onToggleItem={handleToggleActionItem} />
+      {isPro ? (
+        <AIChecklist items={actionableSteps} onToggleItem={handleToggleActionItem} />
+      ) : (
+        <View style={styles.checklistLockedCard}>
+          <View style={styles.checklistLockedHeader}>
+            <Text selectable style={styles.checklistLockedTitle}>
+              AI Action Plan
+            </Text>
+            <Text selectable style={styles.checklistLockedBadge}>
+              PRO
+            </Text>
+          </View>
+          <Text selectable style={styles.checklistLockedText}>
+            Personalized daily action steps are available on Pro.
+          </Text>
+          {process.env.EXPO_OS === 'ios' ? (
+            <IOSHost matchContents useViewportSizeMeasurement>
+              <IOSButton
+                label="Unlock Pro"
+                systemImage="sparkles"
+                onPress={handleOpenChecklistUpgrade}
+                modifiers={[
+                  controlSize('regular'),
+                  tint('rgba(34, 211, 238, 1)'),
+                  buttonStyle('borderedProminent'),
+                ]}
+              />
+            </IOSHost>
+          ) : (
+            <Pressable onPress={handleOpenChecklistUpgrade} style={styles.checklistLockedButtonFallback}>
+              <Text selectable style={styles.checklistLockedButtonFallbackLabel}>
+                Unlock Pro
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       <View style={styles.metricsStack}>
         <View style={styles.metricCard}>
@@ -1170,6 +1212,54 @@ const styles = StyleSheet.create({
   },
   scanActionButtonHost: {
     flex: 1,
+  },
+  checklistLockedCard: {
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 10,
+    backgroundColor: PlatformColor('secondarySystemGroupedBackground'),
+  },
+  checklistLockedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  checklistLockedTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: PlatformColor('label'),
+  },
+  checklistLockedBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(8, 145, 178, 1)',
+    backgroundColor: 'rgba(34, 211, 238, 0.18)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+  },
+  checklistLockedText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: PlatformColor('secondaryLabel'),
+    lineHeight: 20,
+  },
+  checklistLockedButtonFallback: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(34, 211, 238, 1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  checklistLockedButtonFallbackLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'white',
   },
   metricsStack: {
     flexDirection: 'column', 

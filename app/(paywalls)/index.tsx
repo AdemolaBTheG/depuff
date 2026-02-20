@@ -6,18 +6,21 @@ import RevenueCatUI from 'react-native-purchases-ui';
 export default function Paywall() {
     return (
         <View style={{ flex: 1 }}>
-            <RevenueCatUI.Paywall
-                onDismiss={() => {
-                    if (router.canGoBack()) {
-                        router.back();
-                    } else {
-                        router.replace('/(tabs)/(home)');
-                    }
-                }}
-                onPurchaseCompleted={() => {
-                    router.replace('/(tabs)/(home)');
-                }}
-            />
-        </View>
+             <RevenueCatUI.Paywall
+               onDismiss={() => {
+                 if (router.canGoBack()) {
+                   router.back();
+                 } else {
+                   router.replace('/(tabs)/(home)');
+                 }
+               }}
+               onPurchaseCompleted={() => {
+                 router.replace('/(tabs)/(home)');
+               }}
+               onRestoreCompleted={() => {
+                 router.replace('/(tabs)/(home)');
+               }}
+             />
+           </View>
     );
 }

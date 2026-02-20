@@ -1,4 +1,5 @@
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
@@ -31,8 +32,7 @@ export default function SettingsIndex() {
   const { width, height } = useWindowDimensions();
   const { waterGoalMl, sodiumGoalMg, setWaterGoalMl, setSodiumGoalMg } = useSettingsStore();
 
-  // Mocking subscription state for Depuff until RevenueCat is wired
-  const isPro = false;
+  const { isPro } = useSubscription();
   const isRTL = I18nManager.isRTL;
 
   useEffect(() => {

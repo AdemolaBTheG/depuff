@@ -1,11 +1,18 @@
 import Shimmer from '@/components/shimmer';
+import { PAYWALL_ROUTE, FREE_DAILY_FOOD_ANALYSES } from '@/constants/gating';
 import { Theme } from '@/constants/Theme';
+import { foodLogs } from '@/db/schema';
 import { useAnalyzeFoodMutation } from '@/hooks/useBridgeApi';
+import { toDailyDate } from '@/hooks/useDayStatus';
 import { BridgeApiError } from '@/services/bridge-api';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { useDbStore } from '@/stores/dbStore';
 import { useFoodAnalysisStore } from '@/stores/foodAnalysisStore';
 import { hapticError, hapticImpact, hapticSelection, hapticSuccess } from '@/utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
+import { useQuery } from '@tanstack/react-query';
+import { sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
@@ -38,6 +45,8 @@ function toErrorMessage(error: unknown): string {
 
 export default function FoodIndexScreen() {
   const router = useRouter();
+  const db = useDbStore((state) => state.db);
+  const { isPro } = useSubscription();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const cameraRef = useRef<VisionCamera | null>(null);
@@ -54,12 +63,33 @@ export default function FoodIndexScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const todayDateKey = toDailyDate(new Date());
   const isAnalyzing = analyzeFoodMutation.isPending;
   const isBusy = isCapturing || isAnalyzing || isPickingImage;
   const supportsFlashCapture = Boolean(device?.hasFlash);
   const supportsTorch = Boolean(device?.hasTorch);
   const canUseFlashControl = supportsFlashCapture || supportsTorch;
   const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
+  const todayFoodAnalysisCountQuery = useQuery({
+    enabled: Boolean(db) && !isPro,
+    queryKey: ['food-limit-count', todayDateKey],
+    queryFn: async () => {
+      if (!db) return 0;
+      const [row] = await db
+        .select({
+          count: sql<number>`cast(count(*) as int)`,
+        })
+        .from(foodLogs)
+        .where(sql`${foodLogs.logDate} = ${todayDateKey}`);
+      return row?.count ?? 0;
+    },
+  });
+  const isDailyFoodLimitReached = !isPro && (todayFoodAnalysisCountQuery.data ?? 0) >= FREE_DAILY_FOOD_ANALYSES;
+
+  const handleOpenPaywall = useCallback(() => {
+    hapticSelection();
+    router.push(PAYWALL_ROUTE as never);
+  }, [router]);
 
   useEffect(() => {
     if (!canUseFlashControl && flashEnabled) {
@@ -169,6 +199,11 @@ export default function FoodIndexScreen() {
 
   const handleAnalyzeCapturedImage = useCallback(async () => {
     if (!capturedImageUri || isAnalyzing) return;
+    if (isDailyFoodLimitReached) {
+      setCaptureError('Daily food analysis limit reached. Upgrade to Pro for unlimited analyses.');
+      handleOpenPaywall();
+      return;
+    }
 
     setCaptureError(null);
     hapticImpact('light');
@@ -192,7 +227,7 @@ export default function FoodIndexScreen() {
       setCaptureError(toErrorMessage(error));
       hapticError();
     }
-  }, [analyzeFoodMutation, capturedImageUri, isAnalyzing, router, setPendingAnalysis]);
+  }, [analyzeFoodMutation, capturedImageUri, handleOpenPaywall, isAnalyzing, isDailyFoodLimitReached, router, setPendingAnalysis]);
 
   useEffect(() => {
     if (hasHydratedFromPendingRef.current) return;
@@ -280,14 +315,14 @@ export default function FoodIndexScreen() {
                   </Text>
                 </PressableScale>
                 <PressableScale
-                  style={[ styles.actionButton, styles.primaryButton, isBusy ? styles.disabledButton : null]}
-                  onPress={isBusy ? undefined : () => void handleAnalyzeCapturedImage()}
+                  style={[ styles.actionButton, styles.primaryButton, isBusy || isDailyFoodLimitReached ? styles.disabledButton : null]}
+                  onPress={isBusy ? undefined : isDailyFoodLimitReached ? handleOpenPaywall : () => void handleAnalyzeCapturedImage()}
                 >
                   {isAnalyzing ? (
                     <ActivityIndicator size="small" color={Theme.colors.foundation} />
                   ) : (
                     <Text selectable style={styles.primaryButtonLabel}>
-                      Analyze
+                      {isDailyFoodLimitReached ? 'Upgrade' : 'Analyze'}
                     </Text>
                   )}
                 </PressableScale>
@@ -315,6 +350,18 @@ export default function FoodIndexScreen() {
               </View>
             )}
           </View>
+          {isDailyFoodLimitReached ? (
+            <View style={styles.limitBanner}>
+              <Text selectable style={styles.limitBannerText}>
+                Daily free food analyses used. Upgrade to Pro for unlimited analyses.
+              </Text>
+              <PressableScale style={styles.limitBannerButton} onPress={handleOpenPaywall}>
+                <Text selectable style={styles.limitBannerButtonLabel}>
+                  Unlock Pro
+                </Text>
+              </PressableScale>
+            </View>
+          ) : null}
         </>
       )}
     </View>
@@ -447,5 +494,38 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  limitBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 120,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  limitBannerText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  limitBannerButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    backgroundColor: Theme.colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  limitBannerButtonLabel: {
+    color: Theme.colors.foundation,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

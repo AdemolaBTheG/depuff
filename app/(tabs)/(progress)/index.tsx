@@ -1,4 +1,6 @@
 import Shimmer from '@/components/shimmer';
+import { PAYWALL_ROUTE, FREE_MAX_ANALYTICS_RANGE_DAYS } from '@/constants/gating';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { dailyLogs, faceScans, foodLogs } from '@/db/schema';
 import { useDbStore } from '@/stores/dbStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -8,8 +10,8 @@ import { pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { desc, sql } from 'drizzle-orm';
-import { Link } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { Link, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const RANGE_OPTIONS = [7, 30, 90] as const;
@@ -422,10 +424,37 @@ function formatDelta(value: number | null): string {
 }
 
 export default function ProgressIndex() {
+  const router = useRouter();
+  const { isPro } = useSubscription();
   const db = useDbStore((state) => state.db);
   const { waterGoalMl, sodiumGoalMg } = useSettingsStore();
   const [rangeIndex, setRangeIndex] = useState(0);
   const range = RANGE_OPTIONS[rangeIndex];
+
+  useEffect(() => {
+    if (!isPro && range > FREE_MAX_ANALYTICS_RANGE_DAYS) {
+      setRangeIndex(0);
+    }
+  }, [isPro, range]);
+
+  const handleRangeChange = useCallback(
+    (nextIndex: number) => {
+      hapticSelection();
+      const nextRange = RANGE_OPTIONS[nextIndex];
+      if (!isPro && nextRange > FREE_MAX_ANALYTICS_RANGE_DAYS) {
+        router.push(PAYWALL_ROUTE as never);
+        setRangeIndex(0);
+        return;
+      }
+      setRangeIndex(nextIndex);
+    },
+    [isPro, router]
+  );
+
+  const handleOpenPaywall = useCallback(() => {
+    hapticSelection();
+    router.push(PAYWALL_ROUTE as never);
+  }, [router]);
 
   const trendQuery = useQuery({
     enabled: Boolean(db),
@@ -443,12 +472,12 @@ export default function ProgressIndex() {
     queryFn: () => fetchHydrationTrend(range, waterGoalMl),
   });
   const riskMixQuery = useQuery({
-    enabled: Boolean(db),
+    enabled: Boolean(db) && isPro,
     queryKey: ['progress-risk-mix', range],
     queryFn: () => fetchRiskMix(range),
   });
   const topFoodsQuery = useQuery({
-    enabled: Boolean(db),
+    enabled: Boolean(db) && isPro,
     queryKey: ['progress-top-foods', range],
     queryFn: () => fetchTopFoods(range),
   });
@@ -574,17 +603,21 @@ export default function ProgressIndex() {
       contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.globalRangeRow}>
-        <Text selectable style={styles.globalRangeLabel}>
-          Range
-        </Text>
+        <View style={styles.globalRangeTitleRow}>
+          <Text selectable style={styles.globalRangeLabel}>
+            Range
+          </Text>
+          {!isPro ? (
+            <Text selectable style={styles.globalRangeLimitLabel}>
+              Free: 7D
+            </Text>
+          ) : null}
+        </View>
         {process.env.EXPO_OS === 'ios' ? (
           <IOSHost style={styles.rangePickerHost} matchContents useViewportSizeMeasurement>
             <IOSPicker
               selection={rangeIndex}
-              onSelectionChange={(nextIndex) => {
-                hapticSelection();
-                setRangeIndex(nextIndex);
-              }}
+              onSelectionChange={handleRangeChange}
               modifiers={[pickerStyle('segmented')]}
             >
               {RANGE_OPTIONS.map((option, index) => (
@@ -599,10 +632,7 @@ export default function ProgressIndex() {
             {RANGE_OPTIONS.map((option, index) => (
               <Pressable
                 key={option}
-                onPress={() => {
-                  hapticSelection();
-                  setRangeIndex(index);
-                }}
+                onPress={() => handleRangeChange(index)}
                 style={[styles.rangeFallbackChip, index === rangeIndex ? styles.rangeFallbackChipActive : null]}
               >
                 <Text
@@ -920,125 +950,167 @@ export default function ProgressIndex() {
         </View>
       </View>
 
-      <View style={styles.card}>
-        <Text selectable style={styles.cardTitle}>
-          Risk Mix
-        </Text>
+      {isPro ? (
+        <View style={styles.card}>
+          <Text selectable style={styles.cardTitle}>
+            Risk Mix
+          </Text>
 
-        <View style={styles.statChipsRow}>
-          <View style={styles.statChip}>
-            <Text selectable style={styles.statChipLabel}>
-              Safe
-            </Text>
-            <Text selectable numberOfLines={1} style={styles.statChipValue}>
-              {formatPercent(riskMix?.safeCount ?? 0, riskMix?.totalMeals ?? 0)}
-            </Text>
-          </View>
-          <View style={styles.statChip}>
-            <Text selectable style={styles.statChipLabel}>
-              Caution
-            </Text>
-            <Text selectable numberOfLines={1} style={styles.statChipValue}>
-              {formatPercent(riskMix?.cautionCount ?? 0, riskMix?.totalMeals ?? 0)}
-            </Text>
-          </View>
-          <View style={styles.statChip}>
-            <Text selectable style={styles.statChipLabel}>
-              Danger
-            </Text>
-            <Text selectable numberOfLines={1} style={styles.statChipValue}>
-              {formatPercent(riskMix?.dangerCount ?? 0, riskMix?.totalMeals ?? 0)}
-            </Text>
-          </View>
-        </View>
-        <Text selectable style={styles.sampleHint}>
-          {riskMix?.totalMeals ?? 0} logged meal{riskMix?.totalMeals === 1 ? '' : 's'}
-          {(riskMix?.unknownCount ?? 0) > 0 ? ` (${riskMix?.unknownCount} unknown)` : ''}
-        </Text>
-
-        <View style={styles.chartContainer}>
-          {riskMixQuery.isLoading ? (
-            renderChartLoadingState()
-          ) : (riskMix?.totalMeals ?? 0) === 0 ? (
-            <View style={styles.emptyChartState}>
-              <Text selectable style={styles.emptyChartText}>
-                No risk data for this range.
+          <View style={styles.statChipsRow}>
+            <View style={styles.statChip}>
+              <Text selectable style={styles.statChipLabel}>
+                Safe
+              </Text>
+              <Text selectable numberOfLines={1} style={styles.statChipValue}>
+                {formatPercent(riskMix?.safeCount ?? 0, riskMix?.totalMeals ?? 0)}
               </Text>
             </View>
-          ) : process.env.EXPO_OS === 'ios' ? (
-            <IOSHost style={styles.chartHost}>
-              <Chart
-                style={styles.chart}
-                data={riskMix?.points ?? []}
-                type="bar"
-                showGrid
-                animate
-                showLegend={false}
-                barStyle={{
-                  cornerRadius: 5,
-                  width: 34,
-                }}
-              />
-            </IOSHost>
+            <View style={styles.statChip}>
+              <Text selectable style={styles.statChipLabel}>
+                Caution
+              </Text>
+              <Text selectable numberOfLines={1} style={styles.statChipValue}>
+                {formatPercent(riskMix?.cautionCount ?? 0, riskMix?.totalMeals ?? 0)}
+              </Text>
+            </View>
+            <View style={styles.statChip}>
+              <Text selectable style={styles.statChipLabel}>
+                Danger
+              </Text>
+              <Text selectable numberOfLines={1} style={styles.statChipValue}>
+                {formatPercent(riskMix?.dangerCount ?? 0, riskMix?.totalMeals ?? 0)}
+              </Text>
+            </View>
+          </View>
+          <Text selectable style={styles.sampleHint}>
+            {riskMix?.totalMeals ?? 0} logged meal{riskMix?.totalMeals === 1 ? '' : 's'}
+            {(riskMix?.unknownCount ?? 0) > 0 ? ` (${riskMix?.unknownCount} unknown)` : ''}
+          </Text>
+
+          <View style={styles.chartContainer}>
+            {riskMixQuery.isLoading ? (
+              renderChartLoadingState()
+            ) : (riskMix?.totalMeals ?? 0) === 0 ? (
+              <View style={styles.emptyChartState}>
+                <Text selectable style={styles.emptyChartText}>
+                  No risk data for this range.
+                </Text>
+              </View>
+            ) : process.env.EXPO_OS === 'ios' ? (
+              <IOSHost style={styles.chartHost}>
+                <Chart
+                  style={styles.chart}
+                  data={riskMix?.points ?? []}
+                  type="bar"
+                  showGrid
+                  animate
+                  showLegend={false}
+                  barStyle={{
+                    cornerRadius: 5,
+                    width: 34,
+                  }}
+                />
+              </IOSHost>
+            ) : (
+              <View style={styles.fallbackChart}>
+                {riskMixFallbackBars.map((bar) => (
+                  <View key={bar.label} style={styles.fallbackBarItem}>
+                    <View style={[styles.fallbackBar, { height: bar.height, backgroundColor: bar.color }]} />
+                    <Text selectable style={styles.fallbackBarLabel}>
+                      {bar.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.card, styles.lockedInsightCard]}>
+          <View style={styles.lockedInsightHeader}>
+            <Text selectable style={styles.cardTitle}>
+              Risk Mix
+            </Text>
+            <Text selectable style={styles.lockedInsightBadge}>
+              PRO
+            </Text>
+          </View>
+          <Text selectable style={styles.lockedInsightText}>
+            Unlock risk distribution trends over longer windows.
+          </Text>
+          <Pressable style={styles.lockedInsightButton} onPress={handleOpenPaywall}>
+            <Text selectable style={styles.lockedInsightButtonLabel}>
+              Unlock Pro
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {isPro ? (
+        <View style={styles.card}>
+          <Text selectable style={styles.cardTitle}>
+            Top 3 Foods
+          </Text>
+          <Text selectable style={styles.sampleHint}>
+            {topFoods?.totalMeals ?? 0} logged meal{topFoods?.totalMeals === 1 ? '' : 's'}
+          </Text>
+
+          {topFoodsQuery.isLoading ? (
+            renderTopFoodsLoadingState()
+          ) : (topFoods?.items.length ?? 0) === 0 ? (
+            <View style={styles.emptyChartState}>
+              <Text selectable style={styles.emptyChartText}>
+                No food logs for this range.
+              </Text>
+            </View>
           ) : (
-            <View style={styles.fallbackChart}>
-              {riskMixFallbackBars.map((bar) => (
-                <View key={bar.label} style={styles.fallbackBarItem}>
-                  <View style={[styles.fallbackBar, { height: bar.height, backgroundColor: bar.color }]} />
-                  <Text selectable style={styles.fallbackBarLabel}>
-                    {bar.label}
-                  </Text>
-                </View>
+            <View style={styles.topFoodsList}>
+              {topFoods?.items.map((item, index) => (
+                <Link key={item.key} href={`/(food)/all?food=${encodeURIComponent(item.foodName)}` as never} asChild>
+                  <Pressable
+                    onPress={hapticSelection}
+                    style={index < topFoods.items.length - 1 ? styles.topFoodRowWithSeparator : styles.topFoodRow}
+                  >
+                    <View style={styles.topFoodRowMain}>
+                      <Text selectable numberOfLines={1} style={styles.topFoodName}>
+                        {item.foodName}
+                      </Text>
+                      <View style={styles.topFoodRowMainRight}>
+                        <Text selectable style={styles.topFoodCount}>
+                          {item.count}x
+                        </Text>
+                        <Ionicons name="chevron-forward" size={15} color="rgba(15, 23, 42, 0.32)" />
+                      </View>
+                    </View>
+                    <Text selectable style={styles.topFoodMeta}>
+                      Avg {Math.round(item.avgSodiumMg).toLocaleString()} mg / {formatRiskLabel(item.dominantRisk)}
+                    </Text>
+                  </Pressable>
+                </Link>
               ))}
             </View>
           )}
         </View>
-      </View>
-
-      <View style={styles.card}>
-        <Text selectable style={styles.cardTitle}>
-          Top 3 Foods
-        </Text>
-        <Text selectable style={styles.sampleHint}>
-          {topFoods?.totalMeals ?? 0} logged meal{topFoods?.totalMeals === 1 ? '' : 's'}
-        </Text>
-
-        {topFoodsQuery.isLoading ? (
-          renderTopFoodsLoadingState()
-        ) : (topFoods?.items.length ?? 0) === 0 ? (
-          <View style={styles.emptyChartState}>
-            <Text selectable style={styles.emptyChartText}>
-              No food logs for this range.
+      ) : (
+        <View style={[styles.card, styles.lockedInsightCard]}>
+          <View style={styles.lockedInsightHeader}>
+            <Text selectable style={styles.cardTitle}>
+              Top 3 Foods
+            </Text>
+            <Text selectable style={styles.lockedInsightBadge}>
+              PRO
             </Text>
           </View>
-        ) : (
-          <View style={styles.topFoodsList}>
-            {topFoods?.items.map((item, index) => (
-              <Link key={item.key} href={`/(food)/all?food=${encodeURIComponent(item.foodName)}` as never} asChild>
-                <Pressable
-                  onPress={hapticSelection}
-                  style={index < topFoods.items.length - 1 ? styles.topFoodRowWithSeparator : styles.topFoodRow}
-                >
-                  <View style={styles.topFoodRowMain}>
-                    <Text selectable numberOfLines={1} style={styles.topFoodName}>
-                      {item.foodName}
-                    </Text>
-                    <View style={styles.topFoodRowMainRight}>
-                      <Text selectable style={styles.topFoodCount}>
-                        {item.count}x
-                      </Text>
-                      <Ionicons name="chevron-forward" size={15} color="rgba(15, 23, 42, 0.32)" />
-                    </View>
-                  </View>
-                  <Text selectable style={styles.topFoodMeta}>
-                    Avg {Math.round(item.avgSodiumMg).toLocaleString()} mg / {formatRiskLabel(item.dominantRisk)}
-                  </Text>
-                </Pressable>
-              </Link>
-            ))}
-          </View>
-        )}
-      </View>
+          <Text selectable style={styles.lockedInsightText}>
+            See your top sodium contributors and drill into history.
+          </Text>
+          <Pressable style={styles.lockedInsightButton} onPress={handleOpenPaywall}>
+            <Text selectable style={styles.lockedInsightButtonLabel}>
+              Unlock Pro
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -1067,11 +1139,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  globalRangeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   globalRangeLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: 'rgba(0, 0, 0, 0.72)',
     letterSpacing: 0.2,
+  },
+  globalRangeLimitLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(8, 145, 178, 1)',
+    backgroundColor: 'rgba(34, 211, 238, 0.18)',
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
+  lockedInsightCard: {
+    gap: 10,
+  },
+  lockedInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  lockedInsightBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(8, 145, 178, 1)',
+    backgroundColor: 'rgba(34, 211, 238, 0.18)',
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    overflow: 'hidden',
+  },
+  lockedInsightText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(0, 0, 0, 0.62)',
+    lineHeight: 20,
+  },
+  lockedInsightButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(34, 211, 238, 1)',
+  },
+  lockedInsightButtonLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'white',
   },
   kpiStrip: {
     flexDirection: 'row',
