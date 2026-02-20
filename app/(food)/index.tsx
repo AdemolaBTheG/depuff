@@ -50,6 +50,9 @@ function toBridgeLocale(locale: string): BridgeLocale {
   if (normalized.startsWith('es')) return 'es';
   if (normalized.startsWith('fr')) return 'fr';
   if (normalized.startsWith('de')) return 'de';
+  if (normalized.startsWith('it')) return 'it';
+  if (normalized.startsWith('nl')) return 'nl';
+  if (normalized.startsWith('pt')) return 'pt';
   if (normalized.startsWith('ja') || normalized.startsWith('jp')) return 'ja';
   if (normalized.startsWith('zh')) return 'zh';
   return 'en';

@@ -6,15 +6,22 @@ import de from './locales/de.json';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
+import it from './locales/it.json';
 import jp from './locales/jp.json';
+import nl from './locales/nl.json';
+import pt from './locales/pt.json';
 import zh from './locales/zh.json';
 
 const resources = {
     en: { translation: en },
+    ja: { translation: jp },
     jp: { translation: jp },
     de: { translation: de },
     fr: { translation: fr },
     es: { translation: es },
+    it: { translation: it },
+    nl: { translation: nl },
+    pt: { translation: pt },
     zh: { translation: zh },
 };
 

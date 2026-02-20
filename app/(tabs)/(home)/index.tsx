@@ -14,7 +14,6 @@ import {
   type DayStatus
 } from '@/hooks/useDayStatus';
 import { DigitalCounterProvider } from '@/lib/digital-counter-context';
-import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { useDbStore } from '@/stores/dbStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { hapticSelection, hapticSuccess } from '@/utils/haptics';
@@ -655,9 +654,6 @@ export default function HomeIndex() {
 
       await queryClient.invalidateQueries({ queryKey: ['day-status', selectedDate] });
       await queryClient.invalidateQueries({ queryKey: ['day-balance', selectedDate] });
-      void syncHydrationWidgetSnapshot().catch((widgetError) => {
-        console.warn('Failed to sync hydration widget', widgetError);
-      });
       if (shouldCelebrateHydration) {
         celebratedHydrationDatesRef.current.add(selectedDate);
         showHydrationGoalToast();

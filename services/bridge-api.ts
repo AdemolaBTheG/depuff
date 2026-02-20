@@ -1,6 +1,6 @@
 import { File } from 'expo-file-system';
 
-export type BridgeLocale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
+export type BridgeLocale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh' | 'it' | 'nl' | 'pt';
 export type BridgeRetentionStatus = 'low_retention' | 'moderate_retention' | 'high_retention';
 export type BridgeRoutineProtocol =
   | 'lymphatic_deep_drainage'

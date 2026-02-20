@@ -170,5 +170,15 @@
         "sleep": "Sleep-first recovery"
       }
     }
+  },
+  "quick_actions": {
+    "home_title": "Home",
+    "home_subtitle": "Open today's dashboard",
+    "scan_title": "Face Scan",
+    "scan_subtitle": "Start your morning scan",
+    "food_title": "Log Food",
+    "food_subtitle": "Capture meal sodium fast",
+    "offer_title": "Upgrade",
+    "offer_subtitle": "Unlock unlimited scans"
   }
 }

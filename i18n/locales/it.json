@@ -1,0 +1,184 @@
+{
+  "common": {
+    "continue": "Continua",
+    "finish": "Fine",
+    "skip": "Salta",
+    "skipForNow": "Salta per ora",
+    "enableCamera": "Abilita fotocamera"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "Qual e il tuo obiettivo principale?",
+        "subtitle": "Adatteremo prima il tuo piano a questo.",
+        "options": {
+          "reduceMorningPuffiness": "Ridurre il gonfiore del mattino",
+          "reduceWaterRetention": "Ridurre la ritenzione idrica",
+          "buildDailyRoutine": "Creare una routine quotidiana",
+          "trackSodiumTriggers": "Tracciare i trigger del sodio"
+        }
+      },
+      "frequency": {
+        "title": "Quanto spesso ti svegli gonfio?",
+        "subtitle": "Questo ci aiuta a calibrare il tuo valore di base.",
+        "options": {
+          "rarely": "Raramente",
+          "oneToTwo": "1-2 giorni a settimana",
+          "threeToFive": "3-5 giorni a settimana",
+          "daily": "Quasi ogni giorno"
+        }
+      },
+      "trigger": {
+        "title": "Quale trigger ti rappresenta di piu?",
+        "subtitle": "Scegli cio che probabilmente causa il tuo gonfiore.",
+        "options": {
+          "saltyFood": "Cibo salato",
+          "poorSleep": "Sonno scarso",
+          "alcohol": "Alcol",
+          "notSure": "Non ne sono ancora sicuro"
+        }
+      },
+      "commitment": {
+        "title": "Quanto intenso deve essere il tuo piano giornaliero?",
+        "subtitle": "Scegli il tuo livello di impegno.",
+        "options": {
+          "light": "Leggero (2 min/giorno)",
+          "standard": "Standard (5 min/giorno)",
+          "focused": "Mirato (10 min/giorno)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Imposta il tuo obiettivo giornaliero di idratazione",
+        "subtitle": "Usiamo questo obiettivo in Home e Progressi.",
+        "unit": "ml al giorno"
+      },
+      "sodium": {
+        "title": "Imposta il tuo limite di sodio",
+        "subtitle": "Depuff traccia quanto ogni giorno e vicino a questo limite.",
+        "unit": "mg al giorno"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Prova la tua prima scansione di anteprima",
+      "permissionSubtitle": "Ci serve l'accesso alla fotocamera per generare la tua anteprima Depuff.",
+      "unavailableTitle": "Fotocamera frontale non disponibile",
+      "unavailableSubtitle": "Puoi continuare con un'anteprima Depuff.",
+      "continueToPreview": "Continua all'anteprima",
+      "previewTitle": "Scansione anteprima",
+      "cameraSubtitle": "Centra il viso e tocca per scattare.",
+      "flashOn": "Flash acceso",
+      "flashOff": "Flash spento",
+      "captureFailed": "Impossibile scattare la foto"
+    },
+    "demoPreview": {
+      "titleBuilding": "Creazione della tua anteprima Depuff",
+      "titleReady": "La tua anteprima Depuff",
+      "subtitleBuilding": "Analizziamo la tua scansione e prepariamo il tuo piano Depuff personalizzato.",
+      "subtitleReady": "Anteprima generata dalla tua scansione.",
+      "badge": "Anteprima Depuff",
+      "imageUnavailable": "Immagine scansione non disponibile",
+      "generating": "Generazione dell'anteprima",
+      "steps": {
+        "contours": "Rilevamento dei contorni del viso",
+        "zones": "Stima delle zone di ritenzione",
+        "profile": "Creazione del profilo punteggio Depuff",
+        "plan": "Finalizzazione del tuo piano d'azione giornaliero"
+      },
+      "hotspotsTitle": "Zone di gonfiore probabili",
+      "actionTitle": "Aree da migliorare oggi",
+      "trendTitle": "Possibile trend Depuff a 7 giorni",
+      "hotspots": {
+        "underEye": "Gonfiore sotto gli occhi",
+        "midFace": "Pienezza della parte centrale del viso",
+        "jawline": "Ritenzione idrica sulla linea mandibolare"
+      },
+      "actions": {
+        "hydration": "Raggiungi il tuo obiettivo di idratazione prima delle 16:00",
+        "sodium": "Mantieni il sodio della cena piu basso del pranzo",
+        "walk": "Fai una camminata di 10 minuti dopo cena"
+      },
+      "unlockCta": "Sblocca analisi completa",
+      "buildingCta": "Creazione della tua anteprima..."
+    },
+    "notifications": {
+      "title": "Resta costante ogni giorno",
+      "subtitle": "Attiva le notifiche cosi Depuff puo ricordarti al momento giusto.",
+      "item_title": "Depuff",
+      "time_5m": "5m",
+      "time_2m": "2m",
+      "time_now": "ora",
+      "item_0": "Promemoria idratazione: bevi la maggior parte dell'acqua prima delle 16:00.",
+      "item_1": "Promemoria rapido: tieni il sodio della cena piu basso del pranzo.",
+      "item_2": "Controllo azione: completa la tua routine Depuff prima di dormire."
+    },
+    "rating": {
+      "title": "Ti sta piacendo Depuff finora?",
+      "subtitle": "Una valutazione veloce ci aiuta a crescere e migliorare i tuoi risultati Depuff.",
+      "cta_rate": "Valuta ora",
+      "cta_skip": "Salta per ora"
+    },
+    "intro": {
+      "ctaNext": "Avanti",
+      "ctaStart": "Inizia configurazione",
+      "slides": {
+        "scan": {
+          "title": "Scansiona in pochi secondi",
+          "description": "Un rapido controllo del viso ogni mattina ti da una base giornaliera chiara.",
+          "points": {
+            "0": "Scatto rapido con fotocamera",
+            "1": "Punteggio gonfiore AI con contesto trend"
+          }
+        },
+        "food": {
+          "title": "Registra i pasti velocemente",
+          "description": "Scatta il cibo e stima il sodio per capire cosa causa davvero il gonfiore.",
+          "points": {
+            "0": "Stima AI del sodio per pasto",
+            "1": "Etichette rischio gonfiore utili"
+          }
+        },
+        "actions": {
+          "title": "Ricevi azioni quotidiane",
+          "description": "Depuff trasforma i dati di scansione e cibo in una checklist mirata per oggi.",
+          "points": {
+            "0": "Priorita su idratazione e sodio",
+            "1": "Attivita semplici con feedback di completamento"
+          }
+        },
+        "progress": {
+          "title": "Monitora cio che funziona",
+          "description": "Segui i tuoi trend nel tempo e scopri quali abitudini riducono di piu il gonfiore.",
+          "points": {
+            "0": "Monitoraggio progressi gratuito 7 giorni",
+            "1": "Analisi piu approfondite con Pro"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Piccoli nutrienti\nquotidiani",
+      "subtitle": "Piccoli cambiamenti si accumulano. Costruisci abitudini che riducono il gonfiore e migliorano la tua base.",
+      "items": {
+        "regulation": "Regolazione del sistema nervoso",
+        "scripts": "Migliore dialogo interiore",
+        "connection": "Connessione invece di isolamento",
+        "boundaries": "Confini chiari",
+        "mindset": "Mentalita a lungo termine",
+        "patience": "Pazienza e costanza",
+        "sleep": "Recupero con priorita al sonno"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "Home",
+    "home_subtitle": "Apri la dashboard di oggi",
+    "scan_title": "Scansione viso",
+    "scan_subtitle": "Avvia la scansione del mattino",
+    "food_title": "Registra cibo",
+    "food_subtitle": "Cattura rapidamente il sodio del pasto",
+    "offer_title": "Upgrade",
+    "offer_subtitle": "Sblocca scansioni illimitate"
+  }
+}

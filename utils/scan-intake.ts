@@ -1,5 +1,10 @@
 import { dailyLogs, faceScans, type ActionItem } from '@/db/schema';
-import { analyzeFace, type AnalyzeFaceResponse, type BridgeRoutineProtocol } from '@/services/bridge-api';
+import {
+  analyzeFace,
+  type AnalyzeFaceResponse,
+  type BridgeLocale,
+  type BridgeRoutineProtocol,
+} from '@/services/bridge-api';
 import { useDbStore } from '@/stores/dbStore';
 import { File } from 'expo-file-system';
 import { and, eq } from 'drizzle-orm';
@@ -11,7 +16,7 @@ export type ScanResultPayload = AnalyzeFaceResponse;
 export type SubmitScanParams = {
   imageUri: string;
   createdAt?: string;
-  locale?: 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
+  locale?: BridgeLocale;
 };
 
 export type PersistScanParams = {

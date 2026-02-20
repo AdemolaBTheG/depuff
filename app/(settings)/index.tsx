@@ -1,11 +1,10 @@
 import { useSubscription } from '@/context/SubscriptionContext';
-import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import * as Linking from 'expo-linking';
 import { PressableScale } from 'pressto';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { usePostHog } from 'posthog-react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -38,12 +37,6 @@ export default function SettingsIndex() {
 
   const { isPro } = useSubscription();
   const isRTL = I18nManager.isRTL;
-
-  useEffect(() => {
-    void syncHydrationWidgetSnapshot().catch((widgetError) => {
-      console.warn('Failed to sync hydration widget', widgetError);
-    });
-  }, [waterGoalMl]);
 
   const openLink = async (url: string) => {
     const supported = await Linking.canOpenURL(url);

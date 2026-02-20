@@ -1,0 +1,184 @@
+{
+  "common": {
+    "continue": "Doorgaan",
+    "finish": "Voltooien",
+    "skip": "Overslaan",
+    "skipForNow": "Nu overslaan",
+    "enableCamera": "Camera inschakelen"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "Wat is je belangrijkste doel?",
+        "subtitle": "We stemmen je plan hier eerst op af.",
+        "options": {
+          "reduceMorningPuffiness": "Ochtendzwelling verminderen",
+          "reduceWaterRetention": "Vochtvasthouden verminderen",
+          "buildDailyRoutine": "Een dagelijkse routine opbouwen",
+          "trackSodiumTriggers": "Natriumtriggers bijhouden"
+        }
+      },
+      "frequency": {
+        "title": "Hoe vaak word je wakker met een opgezwollen gezicht?",
+        "subtitle": "Dit helpt ons je basisniveau te kalibreren.",
+        "options": {
+          "rarely": "Zelden",
+          "oneToTwo": "1-2 dagen per week",
+          "threeToFive": "3-5 dagen per week",
+          "daily": "Bijna dagelijks"
+        }
+      },
+      "trigger": {
+        "title": "Welke trigger past het best?",
+        "subtitle": "Kies wat je zwelling waarschijnlijk veroorzaakt.",
+        "options": {
+          "saltyFood": "Zout eten",
+          "poorSleep": "Slechte slaap",
+          "alcohol": "Alcohol",
+          "notSure": "Ik weet het nog niet zeker"
+        }
+      },
+      "commitment": {
+        "title": "Hoe intensief moet je dagelijkse plan zijn?",
+        "subtitle": "Kies je inspanningsniveau.",
+        "options": {
+          "light": "Licht (2 min/dag)",
+          "standard": "Standaard (5 min/dag)",
+          "focused": "Gefocust (10 min/dag)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Stel je dagelijkse hydratatiedoel in",
+        "subtitle": "We gebruiken dit doel in Home en Voortgang.",
+        "unit": "ml per dag"
+      },
+      "sodium": {
+        "title": "Stel je natriumlimiet in",
+        "subtitle": "Depuff volgt hoe dicht je elke dag bij deze limiet zit.",
+        "unit": "mg per dag"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Probeer je eerste voorbeeldscan",
+      "permissionSubtitle": "We hebben cameratoegang nodig om je Depuff-voorbeeld te maken.",
+      "unavailableTitle": "Frontcamera niet beschikbaar",
+      "unavailableSubtitle": "Je kunt in plaats daarvan doorgaan met een Depuff-voorbeeld.",
+      "continueToPreview": "Doorgaan naar voorbeeld",
+      "previewTitle": "Voorbeeldscan",
+      "cameraSubtitle": "Plaats je gezicht in het midden en tik op vastleggen.",
+      "flashOn": "Flitser aan",
+      "flashOff": "Flitser uit",
+      "captureFailed": "Foto maken mislukt"
+    },
+    "demoPreview": {
+      "titleBuilding": "Je Depuff-voorbeeld wordt gemaakt",
+      "titleReady": "Jouw Depuff-voorbeeld",
+      "subtitleBuilding": "We analyseren je scan en bereiden je persoonlijke Depuff-plan voor.",
+      "subtitleReady": "Voorbeeld gegenereerd op basis van je scan.",
+      "badge": "Depuff-voorbeeld",
+      "imageUnavailable": "Scanafbeelding niet beschikbaar",
+      "generating": "Je voorbeeld genereren",
+      "steps": {
+        "contours": "Gezichtscontouren detecteren",
+        "zones": "Zones met vochtretentie inschatten",
+        "profile": "Depuff-scoreprofiel opbouwen",
+        "plan": "Je dagelijkse actieplan afronden"
+      },
+      "hotspotsTitle": "Waarschijnlijke zwellingshotspots",
+      "actionTitle": "Zones om vandaag te verbeteren",
+      "trendTitle": "Mogelijke 7-daagse Depuff-trend",
+      "hotspots": {
+        "underEye": "Zwelling onder de ogen",
+        "midFace": "Volheid in het midden van het gezicht",
+        "jawline": "Vochtretentie bij de kaaklijn"
+      },
+      "actions": {
+        "hydration": "Haal je hydratatiedoel voor 16:00",
+        "sodium": "Houd natrium bij het avondeten lager dan bij de lunch",
+        "walk": "Maak na je avondmaaltijd 10 minuten een wandeling"
+      },
+      "unlockCta": "Volledige analyse ontgrendelen",
+      "buildingCta": "Je voorbeeld wordt gemaakt..."
+    },
+    "notifications": {
+      "title": "Blijf dagelijks op koers",
+      "subtitle": "Schakel meldingen in zodat Depuff je op het juiste moment kan herinneren.",
+      "item_title": "Depuff",
+      "time_5m": "5m",
+      "time_2m": "2m",
+      "time_now": "nu",
+      "item_0": "Hydratatieherinnering: drink het grootste deel van je water voor 16:00.",
+      "item_1": "Snelle reminder: houd natrium bij het avondeten lager dan bij de lunch.",
+      "item_2": "Actiecheck: rond je Depuff-routine af voor het slapengaan."
+    },
+    "rating": {
+      "title": "Bevalt Depuff tot nu toe?",
+      "subtitle": "Een snelle beoordeling helpt ons groeien en je Depuff-resultaten te verbeteren.",
+      "cta_rate": "Nu beoordelen",
+      "cta_skip": "Nu overslaan"
+    },
+    "intro": {
+      "ctaNext": "Volgende",
+      "ctaStart": "Start setup",
+      "slides": {
+        "scan": {
+          "title": "Scan in seconden",
+          "description": "Een snelle gezichtsscan elke ochtend geeft je een duidelijke dagelijkse basis.",
+          "points": {
+            "0": "Snelle cameracapture",
+            "1": "AI-bloatscore met trendcontext"
+          }
+        },
+        "food": {
+          "title": "Log maaltijden snel",
+          "description": "Maak een foto van je eten en schat natrium om te zien wat zwelling echt triggert.",
+          "points": {
+            "0": "AI-natriumschatting per maaltijd",
+            "1": "Actiegerichte zwellingsrisicolabels"
+          }
+        },
+        "actions": {
+          "title": "Ontvang dagelijkse acties",
+          "description": "Depuff zet je scan- en voedingsdata om in een gerichte checklist voor vandaag.",
+          "points": {
+            "0": "Prioriteiten voor hydratatie en natrium",
+            "1": "Eenvoudige taken met voltooiingsfeedback"
+          }
+        },
+        "progress": {
+          "title": "Volg wat werkt",
+          "description": "Volg je trends in de tijd en zie welke gewoontes zwelling het meest verminderen.",
+          "points": {
+            "0": "7 dagen gratis voortgangsmeting",
+            "1": "Diepere inzichten met Pro-analyses"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Kleine dagelijkse\nvoedingsstoffen",
+      "subtitle": "Kleine veranderingen stapelen op. Bouw gewoontes die zwelling verminderen en je basis verbeteren.",
+      "items": {
+        "regulation": "Regulatie van het zenuwstelsel",
+        "scripts": "Betere zelfspraak",
+        "connection": "Verbondenheid boven isolatie",
+        "boundaries": "Duidelijke grenzen",
+        "mindset": "Langetermijnmindset",
+        "patience": "Geduld en consistentie",
+        "sleep": "Herstel met slaap als prioriteit"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "Home",
+    "home_subtitle": "Open het dashboard van vandaag",
+    "scan_title": "Gezichtsscan",
+    "scan_subtitle": "Start je ochtendscan",
+    "food_title": "Eten loggen",
+    "food_subtitle": "Leg snel natrium van je maaltijd vast",
+    "offer_title": "Upgrade",
+    "offer_subtitle": "Ontgrendel onbeperkte scans"
+  }
+}

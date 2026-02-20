@@ -1,4 +1,3 @@
-import { syncHydrationWidgetSnapshot } from '@/services/hydration-widget';
 import { posthog } from '@/src/config/posthog';
 import { useDbStore } from '@/stores/dbStore';
 import { useEffect, useState } from 'react';
@@ -92,11 +91,6 @@ export function useAppInitialization() {
     (async () => {
       try {
         await initializeDb();
-        try {
-          await syncHydrationWidgetSnapshot();
-        } catch (widgetError) {
-          console.warn('Hydration widget sync failed during init', widgetError);
-        }
         await configurePurchases();
         await initOneSignal();
         await syncIdsToRevenueCat();

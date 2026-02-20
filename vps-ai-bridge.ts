@@ -22,7 +22,7 @@ type FoodRequestBody = {
   locale?: string;
 };
 
-type SupportedLocale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh';
+type SupportedLocale = 'en' | 'es' | 'fr' | 'de' | 'ja' | 'zh' | 'it' | 'nl' | 'pt';
 type RoutineProtocol = 'lymphatic_deep_drainage' | 'standard_drainage' | 'quick_sculpt';
 type WeekdayVariant = 'reset' | 'boost' | 'sculpt' | 'release' | 'balance' | 'deep' | 'restore';
 type ActionableStep = {
@@ -40,7 +40,17 @@ const TMP_SCAN_DIR = process.env.TMP_SCAN_DIR ?? '/tmp/scans';
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const BRIDGE_API_TOKEN = (process.env.BRIDGE_API_TOKEN ?? '').trim();
 const ROUTINE_CDN_BASE_URL = process.env.ROUTINE_CDN_BASE_URL ?? 'https://cdn.yourdomain.com/routines';
-const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'es', 'fr', 'de', 'ja', 'zh'];
+const SUPPORTED_LOCALES: readonly SupportedLocale[] = [
+  'en',
+  'es',
+  'fr',
+  'de',
+  'ja',
+  'zh',
+  'it',
+  'nl',
+  'pt',
+];
 const DEFAULT_LOCALE = normalizeLocale(process.env.DEFAULT_LOCALE) ?? 'en';
 
 const MODEL_LANGUAGE_LABELS: Record<SupportedLocale, string> = {
@@ -50,6 +60,9 @@ const MODEL_LANGUAGE_LABELS: Record<SupportedLocale, string> = {
   de: 'German',
   ja: 'Japanese',
   zh: 'Simplified Chinese',
+  it: 'Italian',
+  nl: 'Dutch',
+  pt: 'Portuguese',
 };
 
 const ROUTINE_PROTOCOL_TITLES: Record<SupportedLocale, Record<RoutineProtocol, string>> = {
@@ -82,6 +95,21 @@ const ROUTINE_PROTOCOL_TITLES: Record<SupportedLocale, Record<RoutineProtocol, s
     lymphatic_deep_drainage: '深层淋巴引流',
     standard_drainage: '标准引流',
     quick_sculpt: '快速塑形',
+  },
+  it: {
+    lymphatic_deep_drainage: 'Drenaggio Linfatico Profondo',
+    standard_drainage: 'Drenaggio Standard',
+    quick_sculpt: 'Quick Sculpt',
+  },
+  nl: {
+    lymphatic_deep_drainage: 'Diepe Lymfedrainage',
+    standard_drainage: 'Standaard Drainage',
+    quick_sculpt: 'Quick Sculpt',
+  },
+  pt: {
+    lymphatic_deep_drainage: 'Drenagem Linfatica Profunda',
+    standard_drainage: 'Drenagem Padrao',
+    quick_sculpt: 'Quick Sculpt',
   },
 };
 
@@ -139,6 +167,33 @@ const ROUTINE_VARIANT_TITLES: Record<SupportedLocale, Record<WeekdayVariant, str
     balance: '平衡',
     deep: '深层',
     restore: '修复',
+  },
+  it: {
+    reset: 'Reset',
+    boost: 'Boost',
+    sculpt: 'Scolpisci',
+    release: 'Rilascio',
+    balance: 'Bilanciamento',
+    deep: 'Profondo',
+    restore: 'Ripristino',
+  },
+  nl: {
+    reset: 'Reset',
+    boost: 'Boost',
+    sculpt: 'Sculpt',
+    release: 'Release',
+    balance: 'Balans',
+    deep: 'Diep',
+    restore: 'Herstel',
+  },
+  pt: {
+    reset: 'Reset',
+    boost: 'Boost',
+    sculpt: 'Esculpir',
+    release: 'Liberacao',
+    balance: 'Equilibrio',
+    deep: 'Profundo',
+    restore: 'Restaurar',
   },
 };
 
@@ -542,6 +597,21 @@ function getFallbackActionTexts(score: number, locale: SupportedLocale): string[
       '对眼周和下颌进行5分钟轻柔淋巴按摩。',
       '下一餐尽量控制盐分摄入。',
     ],
+    it: [
+      'Bevi 500ml di acqua nei prossimi 30 minuti.',
+      'Esegui 5 minuti di drenaggio linfatico delicato su occhi e mandibola.',
+      'Mantieni basso il sodio nel prossimo pasto.',
+    ],
+    nl: [
+      'Drink 500ml water in de komende 30 minuten.',
+      'Doe 5 minuten zachte lymfedrainage rond ogen en kaaklijn.',
+      'Houd natrium laag bij je volgende maaltijd.',
+    ],
+    pt: [
+      'Beba 500ml de agua nos proximos 30 minutos.',
+      'Faca 5 minutos de drenagem linfatica suave na regiao dos olhos e mandibula.',
+      'Mantenha baixo o sodio na proxima refeicao.',
+    ],
   };
 
   const base = [...fallbackByLocale[locale]];
@@ -555,6 +625,12 @@ function getFallbackActionTexts(score: number, locale: SupportedLocale): string[
             ? "Fais ta routine de drainage profond aujourd'hui."
             : locale === 'de'
               ? 'Nutze heute deine tiefe Drainage-Routine.'
+              : locale === 'it'
+                ? 'Fai oggi la tua routine di drenaggio profondo.'
+                : locale === 'nl'
+                  ? 'Gebruik vandaag je diepe drainageroutine.'
+                  : locale === 'pt'
+                    ? 'Use hoje sua rotina de drenagem profunda.'
               : locale === 'ja'
                 ? '今日はディープドレナージュルーティンを行ってください。'
                 : '今天请执行深层引流方案。'
@@ -569,6 +645,12 @@ function getFallbackActionTexts(score: number, locale: SupportedLocale): string[
             ? "Fais ta routine quick sculpt aujourd'hui."
             : locale === 'de'
               ? 'Nutze heute deine Quick-Sculpt-Routine.'
+              : locale === 'it'
+                ? 'Fai oggi la tua routine quick sculpt.'
+                : locale === 'nl'
+                  ? 'Gebruik vandaag je quick sculpt-routine.'
+                  : locale === 'pt'
+                    ? 'Use hoje sua rotina quick sculpt.'
               : locale === 'ja'
                 ? '今日はクイックスカルプトルーティンを行ってください。'
                 : '今天请执行快速塑形方案。'
@@ -646,6 +728,14 @@ function normalizeLocale(input: string | undefined): SupportedLocale | null {
     'fr-fr': 'fr',
     de: 'de',
     'de-de': 'de',
+    it: 'it',
+    'it-it': 'it',
+    nl: 'nl',
+    'nl-nl': 'nl',
+    'nl-be': 'nl',
+    pt: 'pt',
+    'pt-br': 'pt',
+    'pt-pt': 'pt',
     zh: 'zh',
     'zh-cn': 'zh',
     'zh-sg': 'zh',

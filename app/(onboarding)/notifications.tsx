@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const TOTAL_STEPS = 10;
 const STEP_INDEX = 8;
 const CARD_COUNT = 3;
-const APP_ICON = require('../../assets/images/icon.png');
+const APP_ICON = require('../../assets/images/depuff.icon/Assets/ChatGPT Image 20. Feb. 2026, 21_20_00.png');
 const ITEM_BODY_KEYS = [
   'onboarding.notifications.item_0',
   'onboarding.notifications.item_1',

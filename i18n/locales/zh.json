@@ -1,1 +1,184 @@
-{}
+{
+  "common": {
+    "continue": "继续",
+    "finish": "完成",
+    "skip": "跳过",
+    "skipForNow": "暂时跳过",
+    "enableCamera": "启用相机"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "你的主要目标是什么？",
+        "subtitle": "我们会先围绕这个目标调整你的计划。",
+        "options": {
+          "reduceMorningPuffiness": "减少晨起浮肿",
+          "reduceWaterRetention": "减少水分滞留",
+          "buildDailyRoutine": "建立日常习惯",
+          "trackSodiumTriggers": "追踪高钠触发因素"
+        }
+      },
+      "frequency": {
+        "title": "你多久会在早上醒来时浮肿一次？",
+        "subtitle": "这有助于我们校准你的基线。",
+        "options": {
+          "rarely": "很少",
+          "oneToTwo": "每周 1-2 天",
+          "threeToFive": "每周 3-5 天",
+          "daily": "几乎每天"
+        }
+      },
+      "trigger": {
+        "title": "哪种触发因素最符合你？",
+        "subtitle": "请选择最可能导致你浮肿的原因。",
+        "options": {
+          "saltyFood": "高盐饮食",
+          "poorSleep": "睡眠不足",
+          "alcohol": "酒精",
+          "notSure": "我还不确定"
+        }
+      },
+      "commitment": {
+        "title": "你希望每日计划强度是多少？",
+        "subtitle": "选择你的投入程度。",
+        "options": {
+          "light": "轻量（2 分钟/天）",
+          "standard": "标准（5 分钟/天）",
+          "focused": "专注（10 分钟/天）"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "设置你的每日饮水目标",
+        "subtitle": "我们会在首页和进度中使用该目标。",
+        "unit": "毫升/天"
+      },
+      "sodium": {
+        "title": "设置你的钠摄入上限",
+        "subtitle": "Depuff 会追踪你每天距离该上限有多近。",
+        "unit": "毫克/天"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "尝试你的第一次预览扫描",
+      "permissionSubtitle": "我们需要相机权限来生成你的 Depuff 预览。",
+      "unavailableTitle": "前置相机不可用",
+      "unavailableSubtitle": "你可以先继续使用 Depuff 预览。",
+      "continueToPreview": "继续查看预览",
+      "previewTitle": "预览扫描",
+      "cameraSubtitle": "将脸置于中央并点击拍摄。",
+      "flashOn": "闪光灯开",
+      "flashOff": "闪光灯关",
+      "captureFailed": "拍照失败"
+    },
+    "demoPreview": {
+      "titleBuilding": "正在生成你的 Depuff 预览",
+      "titleReady": "你的 Depuff 预览",
+      "subtitleBuilding": "正在分析你的扫描并准备个性化 Depuff 计划。",
+      "subtitleReady": "已根据你的扫描生成预览。",
+      "badge": "Depuff 预览",
+      "imageUnavailable": "扫描图片不可用",
+      "generating": "正在生成预览",
+      "steps": {
+        "contours": "正在检测面部轮廓",
+        "zones": "正在估算浮肿滞留区域",
+        "profile": "正在生成 Depuff 评分画像",
+        "plan": "正在完成今日行动计划"
+      },
+      "hotspotsTitle": "可能的浮肿热点",
+      "actionTitle": "今天可改善的区域",
+      "trendTitle": "7 天 Depuff 潜在趋势",
+      "hotspots": {
+        "underEye": "眼下浮肿",
+        "midFace": "中面部饱满",
+        "jawline": "下颌线水分滞留"
+      },
+      "actions": {
+        "hydration": "在下午 4 点前完成饮水目标",
+        "sodium": "晚餐钠摄入保持低于午餐",
+        "walk": "晚餐后步行 10 分钟"
+      },
+      "unlockCta": "解锁完整分析",
+      "buildingCta": "正在生成预览..."
+    },
+    "notifications": {
+      "title": "每天保持节奏",
+      "subtitle": "开启通知，让 Depuff 在正确时间提醒你。",
+      "item_title": "Depuff",
+      "time_5m": "5 分钟",
+      "time_2m": "2 分钟",
+      "time_now": "现在",
+      "item_0": "饮水提醒：下午 4 点前先完成大部分饮水。",
+      "item_1": "小提示：晚餐钠摄入低于午餐。",
+      "item_2": "行动检查：睡前完成你的 Depuff 例行流程。"
+    },
+    "rating": {
+      "title": "你喜欢目前的 Depuff 吗？",
+      "subtitle": "一个简短评分能帮助我们持续改进你的 Depuff 效果。",
+      "cta_rate": "立即评分",
+      "cta_skip": "暂时跳过"
+    },
+    "intro": {
+      "ctaNext": "下一步",
+      "ctaStart": "开始设置",
+      "slides": {
+        "scan": {
+          "title": "几秒完成扫描",
+          "description": "每天早晨快速面部检查，帮你建立清晰的日基线。",
+          "points": {
+            "0": "快速相机拍摄",
+            "1": "AI 浮肿评分与趋势上下文"
+          }
+        },
+        "food": {
+          "title": "快速记录饮食",
+          "description": "拍下食物并估算钠含量，找出真正导致浮肿的因素。",
+          "points": {
+            "0": "每餐 AI 钠含量估算",
+            "1": "可执行的浮肿风险标签"
+          }
+        },
+        "actions": {
+          "title": "获取每日行动",
+          "description": "Depuff 将扫描与饮食数据转化为今日重点清单。",
+          "points": {
+            "0": "饮水与钠摄入优先级",
+            "1": "带完成反馈的简洁任务"
+          }
+        },
+        "progress": {
+          "title": "追踪有效方法",
+          "description": "长期观察趋势，找出最能减少浮肿的习惯。",
+          "points": {
+            "0": "免费 7 天进度追踪",
+            "1": "Pro 提供更深入分析"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "每日微小\n养成",
+      "subtitle": "微小改变会持续累积。建立能减少浮肿并改善基线的习惯。",
+      "items": {
+        "regulation": "神经系统调节",
+        "scripts": "更好的自我对话",
+        "connection": "连接而非孤立",
+        "boundaries": "清晰边界",
+        "mindset": "长期心态",
+        "patience": "耐心与持续性",
+        "sleep": "优先睡眠恢复"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "首页",
+    "home_subtitle": "打开今日仪表盘",
+    "scan_title": "面部扫描",
+    "scan_subtitle": "开始晨间扫描",
+    "food_title": "记录饮食",
+    "food_subtitle": "快速记录餐食钠含量",
+    "offer_title": "升级",
+    "offer_subtitle": "解锁无限次扫描"
+  }
+}

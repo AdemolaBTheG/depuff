@@ -7,13 +7,16 @@
     "icon": "./assets/images/icon.png",
 
     "scheme": "depuff",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "icon": "./assets/images/depuff.icon",
+
+      "supportsTablet": false,
       "bundleIdentifier": "com.depuff.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
-        "ITSAppUsesNonExemptEncryption": false
+        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to the camera to allow you to take photos and videos and analyze them.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "$(PRODUCT_NAME) may not actually need this permission, but it may be required by one of our services."
       }
     },
     "android": {
@@ -51,31 +54,9 @@
       "expo-sqlite",
       "expo-web-browser",
       "expo-localization",
-      [
-        "expo-widgets",
-        {
-          "bundleIdentifier": "com.depuff.app.widgets",
-          "groupIdentifier": "group.com.depuff.app",
-          "enablePushNotifications": false,
-          "widgets": [
-            {
-              "name": "HydrationFlushWidget",
-              "displayName": "Hydration Flush",
-              "description": "Log hydration from the home screen and view flush status.",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
-            }
-          ]
-        }
-      ],
+
       "react-native-vision-camera",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "deploymentTarget": "16.2"
-          }
-        }
-      ],
+
       "expo-video"
     ],
     "experiments": {
@@ -85,21 +66,6 @@
     "extra": {
       "router": {},
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "ExpoWidgetsTarget",
-                  "bundleIdentifier": "com.depuff.app.widgets",
-                  "entitlements": {
-                    "com.apple.security.application-groups": ["group.com.depuff.app"]
-                  }
-                }
-              ]
-            }
-          }
-        },
         "projectId": "949b5347-9bde-4d72-99a4-a2f8e3ccbe99"
       }
     }

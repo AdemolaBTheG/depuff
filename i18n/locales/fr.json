@@ -1,1 +1,184 @@
-{}
+{
+  "common": {
+    "continue": "Continuer",
+    "finish": "Terminer",
+    "skip": "Passer",
+    "skipForNow": "Passer pour le moment",
+    "enableCamera": "Activer la camera"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "Quel est ton objectif principal ?",
+        "subtitle": "Nous allons d'abord ajuster ton plan autour de cela.",
+        "options": {
+          "reduceMorningPuffiness": "Reduire les gonflements du matin",
+          "reduceWaterRetention": "Reduire la retention d'eau",
+          "buildDailyRoutine": "Creer une routine quotidienne",
+          "trackSodiumTriggers": "Suivre les declencheurs lies au sodium"
+        }
+      },
+      "frequency": {
+        "title": "A quelle frequence te reveilles-tu gonfle(e) ?",
+        "subtitle": "Cela nous aide a calibrer ta base de reference.",
+        "options": {
+          "rarely": "Rarement",
+          "oneToTwo": "1-2 jours par semaine",
+          "threeToFive": "3-5 jours par semaine",
+          "daily": "Presque tous les jours"
+        }
+      },
+      "trigger": {
+        "title": "Quel declencheur correspond le mieux ?",
+        "subtitle": "Choisis ce qui cause le plus probablement ton gonflement.",
+        "options": {
+          "saltyFood": "Nourriture salee",
+          "poorSleep": "Mauvais sommeil",
+          "alcohol": "Alcool",
+          "notSure": "Je ne suis pas encore sur(e)"
+        }
+      },
+      "commitment": {
+        "title": "Quelle intensite veux-tu pour ton plan quotidien ?",
+        "subtitle": "Choisis ton niveau d'effort.",
+        "options": {
+          "light": "Leger (2 min/jour)",
+          "standard": "Standard (5 min/jour)",
+          "focused": "Intensif (10 min/jour)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Definis ton objectif d'hydratation quotidien",
+        "subtitle": "Nous utilisons cet objectif dans Accueil et Progression.",
+        "unit": "ml par jour"
+      },
+      "sodium": {
+        "title": "Definis ta limite de sodium",
+        "subtitle": "Depuff suit a quel point chaque jour s'approche de ce plafond.",
+        "unit": "mg par jour"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Essaie ton premier scan de previsualisation",
+      "permissionSubtitle": "Nous avons besoin de l'acces camera pour generer ton apercu Depuff.",
+      "unavailableTitle": "Camera frontale indisponible",
+      "unavailableSubtitle": "Tu peux continuer avec un apercu Depuff a la place.",
+      "continueToPreview": "Continuer vers l'apercu",
+      "previewTitle": "Scan de previsualisation",
+      "cameraSubtitle": "Centre ton visage et appuie pour capturer.",
+      "flashOn": "Flash active",
+      "flashOff": "Flash desactive",
+      "captureFailed": "Echec de la prise de photo"
+    },
+    "demoPreview": {
+      "titleBuilding": "Creation de ton apercu Depuff",
+      "titleReady": "Ton apercu Depuff",
+      "subtitleBuilding": "Analyse de ton scan et preparation de ton plan Depuff personnalise.",
+      "subtitleReady": "Apercu genere a partir de ton scan.",
+      "badge": "Apercu Depuff",
+      "imageUnavailable": "Image du scan indisponible",
+      "generating": "Generation de ton apercu",
+      "steps": {
+        "contours": "Detection des contours du visage",
+        "zones": "Estimation des zones de retention",
+        "profile": "Creation du profil de score Depuff",
+        "plan": "Finalisation de ton plan d'action quotidien"
+      },
+      "hotspotsTitle": "Zones de gonflement probables",
+      "actionTitle": "Zones a ameliorer aujourd'hui",
+      "trendTitle": "Tendance Depuff potentielle sur 7 jours",
+      "hotspots": {
+        "underEye": "Gonflement sous les yeux",
+        "midFace": "Volume du milieu du visage",
+        "jawline": "Retention d'eau sur la machoire"
+      },
+      "actions": {
+        "hydration": "Atteins ton objectif d'hydratation avant 16 h",
+        "sodium": "Garde le sodium du diner plus bas que celui du dejeuner",
+        "walk": "Fais une marche de 10 minutes apres le repas du soir"
+      },
+      "unlockCta": "Debloquer l'analyse complete",
+      "buildingCta": "Creation de ton apercu..."
+    },
+    "notifications": {
+      "title": "Reste sur la bonne voie chaque jour",
+      "subtitle": "Active les notifications pour que Depuff te rappelle au bon moment.",
+      "item_title": "Depuff",
+      "time_5m": "5 min",
+      "time_2m": "2 min",
+      "time_now": "maintenant",
+      "item_0": "Rappel hydratation : bois la plus grande partie de ton eau avant 16 h.",
+      "item_1": "Petit rappel : garde le sodium du diner plus bas que celui du dejeuner.",
+      "item_2": "Verification action : termine ta routine Depuff avant de dormir."
+    },
+    "rating": {
+      "title": "Tu apprecies Depuff jusqu'ici ?",
+      "subtitle": "Une note rapide nous aide a grandir et a ameliorer tes resultats Depuff.",
+      "cta_rate": "Noter maintenant",
+      "cta_skip": "Passer pour le moment"
+    },
+    "intro": {
+      "ctaNext": "Suivant",
+      "ctaStart": "Commencer la configuration",
+      "slides": {
+        "scan": {
+          "title": "Scanne en quelques secondes",
+          "description": "Un controle rapide du visage chaque matin donne une base quotidienne claire.",
+          "points": {
+            "0": "Capture camera rapide",
+            "1": "Score de gonflement IA avec contexte de tendance"
+          }
+        },
+        "food": {
+          "title": "Enregistre les repas rapidement",
+          "description": "Prends ton repas en photo et estime le sodium pour identifier ce qui cause vraiment le gonflement.",
+          "points": {
+            "0": "Estimation IA du sodium par repas",
+            "1": "Etiquettes de risque de gonflement exploitables"
+          }
+        },
+        "actions": {
+          "title": "Recois des actions quotidiennes",
+          "description": "Depuff transforme tes donnees scan + repas en checklist ciblee pour aujourd'hui.",
+          "points": {
+            "0": "Priorites hydratation et sodium",
+            "1": "Taches simples avec suivi d'avancement"
+          }
+        },
+        "progress": {
+          "title": "Suis ce qui fonctionne",
+          "description": "Observe tes tendances dans le temps et vois quelles habitudes reduisent le plus les gonflements.",
+          "points": {
+            "0": "Suivi gratuit sur 7 jours",
+            "1": "Analyses plus approfondies avec Pro"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Petits nutriments\nquotidiens",
+      "subtitle": "Les petits changements s'accumulent. Cree des habitudes qui reduisent les gonflements et ameliorent ta base.",
+      "items": {
+        "regulation": "Regulation du systeme nerveux",
+        "scripts": "Meilleur dialogue interieur",
+        "connection": "Connexion plutot qu'isolement",
+        "boundaries": "Limites claires",
+        "mindset": "Etat d'esprit long terme",
+        "patience": "Patience et constance",
+        "sleep": "Recuperation orientee sommeil"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "Accueil",
+    "home_subtitle": "Ouvre ton tableau de bord du jour",
+    "scan_title": "Scan visage",
+    "scan_subtitle": "Lance ton scan du matin",
+    "food_title": "Journal repas",
+    "food_subtitle": "Capture rapidement le sodium du repas",
+    "offer_title": "Passer Pro",
+    "offer_subtitle": "Debloque des scans illimites"
+  }
+}

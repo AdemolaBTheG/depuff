@@ -1,1 +1,184 @@
-{}
+{
+  "common": {
+    "continue": "続ける",
+    "finish": "完了",
+    "skip": "スキップ",
+    "skipForNow": "今はスキップ",
+    "enableCamera": "カメラを有効にする"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "あなたの主な目標は何ですか？",
+        "subtitle": "まずこの目標を中心にプランを調整します。",
+        "options": {
+          "reduceMorningPuffiness": "朝のむくみを減らす",
+          "reduceWaterRetention": "水分貯留を減らす",
+          "buildDailyRoutine": "毎日のルーティンを作る",
+          "trackSodiumTriggers": "塩分トリガーを追跡する"
+        }
+      },
+      "frequency": {
+        "title": "どのくらいの頻度でむくんだ状態で目覚めますか？",
+        "subtitle": "これであなたの基準値を調整できます。",
+        "options": {
+          "rarely": "ほとんどない",
+          "oneToTwo": "週1〜2日",
+          "threeToFive": "週3〜5日",
+          "daily": "ほぼ毎日"
+        }
+      },
+      "trigger": {
+        "title": "最も当てはまるトリガーは？",
+        "subtitle": "むくみの原因として最も可能性が高いものを選んでください。",
+        "options": {
+          "saltyFood": "塩分の多い食事",
+          "poorSleep": "睡眠不足",
+          "alcohol": "アルコール",
+          "notSure": "まだ分からない"
+        }
+      },
+      "commitment": {
+        "title": "毎日のプランの強度はどれくらいにしますか？",
+        "subtitle": "あなたの取り組みレベルを選んでください。",
+        "options": {
+          "light": "ライト（1日2分）",
+          "standard": "標準（1日5分）",
+          "focused": "集中（1日10分）"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "1日の水分目標を設定",
+        "subtitle": "この目標はホームと進捗で使用されます。",
+        "unit": "1日あたり ml"
+      },
+      "sodium": {
+        "title": "塩分上限を設定",
+        "subtitle": "Depuff は毎日この上限にどれだけ近いかを追跡します。",
+        "unit": "1日あたり mg"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "最初のプレビュースキャンを試す",
+      "permissionSubtitle": "Depuff プレビュー生成のためにカメラ権限が必要です。",
+      "unavailableTitle": "フロントカメラが利用できません",
+      "unavailableSubtitle": "代わりに Depuff プレビューで続行できます。",
+      "continueToPreview": "プレビューへ進む",
+      "previewTitle": "プレビュースキャン",
+      "cameraSubtitle": "顔を中央に合わせて撮影してください。",
+      "flashOn": "フラッシュ ON",
+      "flashOff": "フラッシュ OFF",
+      "captureFailed": "写真の撮影に失敗しました"
+    },
+    "demoPreview": {
+      "titleBuilding": "Depuff プレビューを作成中",
+      "titleReady": "あなたの Depuff プレビュー",
+      "subtitleBuilding": "スキャンを分析し、あなた向けの Depuff プランを準備しています。",
+      "subtitleReady": "スキャンからプレビューを生成しました。",
+      "badge": "Depuff プレビュー",
+      "imageUnavailable": "スキャン画像を利用できません",
+      "generating": "プレビューを生成中",
+      "steps": {
+        "contours": "顔の輪郭を検出中",
+        "zones": "むくみ保持ゾーンを推定中",
+        "profile": "Depuff スコアプロファイルを作成中",
+        "plan": "本日のアクションプランを仕上げ中"
+      },
+      "hotspotsTitle": "むくみが出やすい部位",
+      "actionTitle": "今日改善するポイント",
+      "trendTitle": "7日間の Depuff 推移予測",
+      "hotspots": {
+        "underEye": "目の下のむくみ",
+        "midFace": "中顔面のふくらみ",
+        "jawline": "フェイスラインの水分貯留"
+      },
+      "actions": {
+        "hydration": "午後4時までに水分目標を達成する",
+        "sodium": "夕食の塩分を昼食より低く抑える",
+        "walk": "夕食後に10分歩く"
+      },
+      "unlockCta": "完全分析をアンロック",
+      "buildingCta": "プレビューを作成中..."
+    },
+    "notifications": {
+      "title": "毎日習慣をキープ",
+      "subtitle": "適切なタイミングで Depuff が通知できるように通知を有効化してください。",
+      "item_title": "Depuff",
+      "time_5m": "5分",
+      "time_2m": "2分",
+      "time_now": "今",
+      "item_0": "水分リマインダー: 午後4時までに水分を先に摂りましょう。",
+      "item_1": "クイック通知: 夕食の塩分は昼食より低く。",
+      "item_2": "アクション確認: 就寝前に Depuff ルーティンを完了しましょう。"
+    },
+    "rating": {
+      "title": "Depuff を気に入っていますか？",
+      "subtitle": "短い評価が、より良い Depuff 体験の改善に役立ちます。",
+      "cta_rate": "今すぐ評価",
+      "cta_skip": "今はスキップ"
+    },
+    "intro": {
+      "ctaNext": "次へ",
+      "ctaStart": "セットアップ開始",
+      "slides": {
+        "scan": {
+          "title": "数秒でスキャン",
+          "description": "毎朝の簡単な顔チェックで、明確な1日の基準値を取得できます。",
+          "points": {
+            "0": "高速カメラ撮影",
+            "1": "AI むくみスコアとトレンド文脈"
+          }
+        },
+        "food": {
+          "title": "食事をすばやく記録",
+          "description": "食事を撮影して塩分を推定し、むくみの本当の原因を把握します。",
+          "points": {
+            "0": "食事ごとの AI 塩分推定",
+            "1": "行動につながるむくみリスク表示"
+          }
+        },
+        "actions": {
+          "title": "毎日のアクションを受け取る",
+          "description": "Depuff はスキャンと食事データを今日の実行チェックリストに変換します。",
+          "points": {
+            "0": "水分と塩分の優先事項",
+            "1": "完了フィードバック付きのシンプルなタスク"
+          }
+        },
+        "progress": {
+          "title": "効果を可視化",
+          "description": "時間経過でトレンドを追い、むくみ改善に効く習慣を確認できます。",
+          "points": {
+            "0": "7日間の無料進捗トラッキング",
+            "1": "Pro でより深い分析"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "毎日の小さな\n栄養習慣",
+      "subtitle": "小さな変化は積み重なります。むくみを減らし、基準値を改善する習慣を作りましょう。",
+      "items": {
+        "regulation": "自律神経の調整",
+        "scripts": "より良いセルフトーク",
+        "connection": "孤立よりつながり",
+        "boundaries": "明確な境界線",
+        "mindset": "長期的なマインドセット",
+        "patience": "忍耐と継続",
+        "sleep": "睡眠優先の回復"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "ホーム",
+    "home_subtitle": "今日のダッシュボードを開く",
+    "scan_title": "顔スキャン",
+    "scan_subtitle": "朝のスキャンを開始",
+    "food_title": "食事記録",
+    "food_subtitle": "食事の塩分をすばやく記録",
+    "offer_title": "アップグレード",
+    "offer_subtitle": "無制限スキャンを解放"
+  }
+}

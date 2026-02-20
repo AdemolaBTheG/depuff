@@ -1,0 +1,31 @@
+{
+  "fill" : "automatic",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "ChatGPT Image 20. Feb. 2026, 21_20_00.png",
+          "name" : "ChatGPT Image 20. Feb. 2026, 21_20_00"
+        },
+        {
+          "image-name" : "ChatGPT Image 20. Feb. 2026, 21_21_54.png",
+          "name" : "ChatGPT Image 20. Feb. 2026, 21_21_54"
+        }
+      ],
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

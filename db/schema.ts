@@ -12,7 +12,7 @@ export const dailyLogs = sqliteTable('daily_logs', {
   // This prevents duplicate rows for the same day and makes querying easy.
   date: text('date').primaryKey(),
 
-  // Water Tracking (Synced with Widget) - in Milliliters
+  // Water tracking in milliliters
   waterIntake: integer('water_intake').default(0),
 
   // Did they finish the "Morning Protocol"?

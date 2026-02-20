@@ -1,0 +1,184 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "finish": "Concluir",
+    "skip": "Pular",
+    "skipForNow": "Pular por enquanto",
+    "enableCamera": "Ativar camera"
+  },
+  "onboarding": {
+    "quiz": {
+      "goal": {
+        "title": "Qual e seu principal objetivo?",
+        "subtitle": "Vamos ajustar seu plano primeiro com base nisso.",
+        "options": {
+          "reduceMorningPuffiness": "Reduzir inchaco matinal",
+          "reduceWaterRetention": "Reduzir retencao de liquidos",
+          "buildDailyRoutine": "Criar uma rotina diaria",
+          "trackSodiumTriggers": "Rastrear gatilhos de sodio"
+        }
+      },
+      "frequency": {
+        "title": "Com que frequencia voce acorda inchado?",
+        "subtitle": "Isso nos ajuda a calibrar sua linha de base.",
+        "options": {
+          "rarely": "Raramente",
+          "oneToTwo": "1-2 dias por semana",
+          "threeToFive": "3-5 dias por semana",
+          "daily": "Quase todos os dias"
+        }
+      },
+      "trigger": {
+        "title": "Qual gatilho combina mais com voce?",
+        "subtitle": "Escolha o que provavelmente causa seu inchaco.",
+        "options": {
+          "saltyFood": "Comida salgada",
+          "poorSleep": "Sono ruim",
+          "alcohol": "Alcool",
+          "notSure": "Ainda nao tenho certeza"
+        }
+      },
+      "commitment": {
+        "title": "Quao intenso deve ser seu plano diario?",
+        "subtitle": "Escolha seu nivel de esforco.",
+        "options": {
+          "light": "Leve (2 min/dia)",
+          "standard": "Padrao (5 min/dia)",
+          "focused": "Focado (10 min/dia)"
+        }
+      }
+    },
+    "goals": {
+      "hydration": {
+        "title": "Defina sua meta diaria de hidratacao",
+        "subtitle": "Usamos essa meta em Inicio e Progresso.",
+        "unit": "ml por dia"
+      },
+      "sodium": {
+        "title": "Defina seu limite de sodio",
+        "subtitle": "Depuff acompanha o quao perto cada dia fica desse limite.",
+        "unit": "mg por dia"
+      }
+    },
+    "demoScan": {
+      "permissionTitle": "Teste seu primeiro escaneamento de preview",
+      "permissionSubtitle": "Precisamos de acesso a camera para gerar seu preview Depuff.",
+      "unavailableTitle": "Camera frontal indisponivel",
+      "unavailableSubtitle": "Voce pode continuar com um preview Depuff.",
+      "continueToPreview": "Continuar para o preview",
+      "previewTitle": "Escaneamento de preview",
+      "cameraSubtitle": "Centralize o rosto e toque para capturar.",
+      "flashOn": "Flash ligado",
+      "flashOff": "Flash desligado",
+      "captureFailed": "Falha ao tirar foto"
+    },
+    "demoPreview": {
+      "titleBuilding": "Construindo seu preview Depuff",
+      "titleReady": "Seu preview Depuff",
+      "subtitleBuilding": "Analisando seu scan e preparando seu plano Depuff personalizado.",
+      "subtitleReady": "Preview gerado a partir do seu scan.",
+      "badge": "Preview Depuff",
+      "imageUnavailable": "Imagem do scan indisponivel",
+      "generating": "Gerando seu preview",
+      "steps": {
+        "contours": "Detectando contornos faciais",
+        "zones": "Estimando zonas de retencao",
+        "profile": "Construindo perfil de pontuacao Depuff",
+        "plan": "Finalizando seu plano de acao diario"
+      },
+      "hotspotsTitle": "Possiveis hotspots de inchaco",
+      "actionTitle": "Areas para melhorar hoje",
+      "trendTitle": "Possivel tendencia Depuff de 7 dias",
+      "hotspots": {
+        "underEye": "Inchaco abaixo dos olhos",
+        "midFace": "Volume na regiao media do rosto",
+        "jawline": "Retencao de liquidos na linha da mandibula"
+      },
+      "actions": {
+        "hydration": "Bata sua meta de hidratacao antes das 16h",
+        "sodium": "Mantenha o sodio do jantar abaixo do almoco",
+        "walk": "Faca uma caminhada de 10 minutos apos a refeicao da noite"
+      },
+      "unlockCta": "Desbloquear analise completa",
+      "buildingCta": "Construindo seu preview..."
+    },
+    "notifications": {
+      "title": "Mantenha o ritmo todos os dias",
+      "subtitle": "Ative notificacoes para o Depuff lembrar voce na hora certa.",
+      "item_title": "Depuff",
+      "time_5m": "5m",
+      "time_2m": "2m",
+      "time_now": "agora",
+      "item_0": "Lembrete de hidratacao: concentre a maior parte da agua antes das 16h.",
+      "item_1": "Lembrete rapido: mantenha o sodio do jantar abaixo do almoco.",
+      "item_2": "Checagem de acao: finalize sua rotina Depuff antes de dormir."
+    },
+    "rating": {
+      "title": "Gostando do Depuff ate agora?",
+      "subtitle": "Uma avaliacao rapida ajuda a gente a crescer e melhorar seus resultados no Depuff.",
+      "cta_rate": "Avaliar agora",
+      "cta_skip": "Pular por enquanto"
+    },
+    "intro": {
+      "ctaNext": "Proximo",
+      "ctaStart": "Iniciar configuracao",
+      "slides": {
+        "scan": {
+          "title": "Escaneie em segundos",
+          "description": "Uma checagem facial rapida toda manha fornece uma linha de base diaria clara.",
+          "points": {
+            "0": "Captura rapida com camera",
+            "1": "Pontuacao de inchaco com IA e contexto de tendencia"
+          }
+        },
+        "food": {
+          "title": "Registre refeicoes rapidamente",
+          "description": "Tire foto da comida e estime sodio para entender o que realmente causa inchaco.",
+          "points": {
+            "0": "Estimativa de sodio por refeicao com IA",
+            "1": "Rotulos de risco de inchaco acionaveis"
+          }
+        },
+        "actions": {
+          "title": "Receba acoes diarias",
+          "description": "Depuff transforma seus dados de scan e alimentacao em uma checklist focada para hoje.",
+          "points": {
+            "0": "Prioridades de hidratacao e sodio",
+            "1": "Tarefas simples com feedback de conclusao"
+          }
+        },
+        "progress": {
+          "title": "Acompanhe o que funciona",
+          "description": "Acompanhe suas tendencias ao longo do tempo e veja quais habitos reduzem mais o inchaco.",
+          "points": {
+            "0": "Acompanhamento gratis de 7 dias",
+            "1": "Insights mais profundos com analises Pro"
+          }
+        }
+      }
+    },
+    "nutrients": {
+      "title": "Pequenos nutrientes\ndiarios",
+      "subtitle": "Pequenas mudancas se acumulam. Construa habitos que reduzem o inchaco e melhoram sua base.",
+      "items": {
+        "regulation": "Regulacao do sistema nervoso",
+        "scripts": "Melhor dialogo interno",
+        "connection": "Conexao em vez de isolamento",
+        "boundaries": "Limites claros",
+        "mindset": "Mentalidade de longo prazo",
+        "patience": "Paciencia e consistencia",
+        "sleep": "Recuperacao com prioridade no sono"
+      }
+    }
+  },
+  "quick_actions": {
+    "home_title": "Inicio",
+    "home_subtitle": "Abrir o painel de hoje",
+    "scan_title": "Scan facial",
+    "scan_subtitle": "Iniciar seu scan da manha",
+    "food_title": "Registrar comida",
+    "food_subtitle": "Capturar rapidamente o sodio da refeicao",
+    "offer_title": "Upgrade",
+    "offer_subtitle": "Desbloquear scans ilimitados"
+  }
+}

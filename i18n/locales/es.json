@@ -170,5 +170,15 @@
         "sleep": "Recuperacion con prioridad en sueno"
       }
     }
+  },
+  "quick_actions": {
+    "home_title": "Inicio",
+    "home_subtitle": "Abre tu panel de hoy",
+    "scan_title": "Escaneo facial",
+    "scan_subtitle": "Inicia tu escaneo de la manana",
+    "food_title": "Registrar comida",
+    "food_subtitle": "Captura rapido el sodio de tu comida",
+    "offer_title": "Mejorar plan",
+    "offer_subtitle": "Desbloquea escaneos ilimitados"
   }
 }
