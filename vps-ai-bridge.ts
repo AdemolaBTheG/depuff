@@ -30,6 +30,10 @@ type ActionableStep = {
   text: string;
   completed: boolean;
 };
+type Citation = {
+  title: string;
+  url: string;
+};
 
 const PORT = Number(process.env.PORT ?? 8080);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -52,6 +56,34 @@ const SUPPORTED_LOCALES: readonly SupportedLocale[] = [
   'pt',
 ];
 const DEFAULT_LOCALE = normalizeLocale(process.env.DEFAULT_LOCALE) ?? 'en';
+const FACE_CITATIONS: readonly Citation[] = [
+  {
+    title: 'NHS: Oedema (Swelling)',
+    url: 'https://www.nhs.uk/conditions/oedema/',
+  },
+  {
+    title: 'Cleveland Clinic: Edema',
+    url: 'https://my.clevelandclinic.org/health/diseases/12564-edema',
+  },
+  {
+    title: 'Mayo Clinic: Bags under eyes',
+    url: 'https://www.mayoclinic.org/diseases-conditions/bags-under-eyes/symptoms-causes/syc-20369927',
+  },
+];
+const FOOD_CITATIONS: readonly Citation[] = [
+  {
+    title: 'WHO: Salt reduction',
+    url: 'https://www.who.int/news-room/fact-sheets/detail/salt-reduction',
+  },
+  {
+    title: 'CDC: About Sodium and Health',
+    url: 'https://www.cdc.gov/salt/about/index.html',
+  },
+  {
+    title: 'American Heart Association: Sodium',
+    url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/sodium',
+  },
+];
 
 const MODEL_LANGUAGE_LABELS: Record<SupportedLocale, string> = {
   en: 'English',
@@ -301,6 +333,7 @@ app.post('/v1/analyze/face', async (req: Request, res: Response) => {
       analysis_summary: summary,
       suggested_protocol: suggestedProtocol,
       actionable_steps: actionableSteps,
+      citations: buildCitations('face'),
     });
   } catch (error) {
     await respondWithDelay(startedAt, res, 500, {
@@ -350,6 +383,7 @@ app.post('/v1/analyze/food', async (req: Request, res: Response) => {
       counter_measure: String(
         modelPayload.counter_measure ?? 'Drink 500-750ml water and avoid extra sodium for 6 hours.'
       ),
+      citations: buildCitations('food'),
     });
   } catch (error) {
     await respondWithDelay(startedAt, res, 500, {
@@ -531,6 +565,11 @@ function scoreToStatus(score: number): 'low_retention' | 'moderate_retention' | 
   if (score >= 70) return 'high_retention';
   if (score >= 40) return 'moderate_retention';
   return 'low_retention';
+}
+
+function buildCitations(kind: 'face' | 'food'): Citation[] {
+  const source = kind === 'face' ? FACE_CITATIONS : FOOD_CITATIONS;
+  return source.map((item) => ({ ...item }));
 }
 
 function scoreToProtocol(score: number): string {

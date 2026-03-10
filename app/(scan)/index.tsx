@@ -25,7 +25,7 @@ import { Canvas, FillType, Path, rect, Skia } from '@shopify/react-native-skia';
 import { useQuery } from '@tanstack/react-query';
 import { sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -61,6 +61,7 @@ const MAX_FACE_RATIO = 0.92;
 const MAX_YAW = 15;
 const MAX_PITCH = 15;
 const MAX_ROLL = 15;
+const DATE_PARAM_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 type QualityGateState = {
   faceCount: number;
@@ -98,6 +99,18 @@ function clamp(value: number, min: number, max: number): number {
 
 function normalizeFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
+}
+
+function normalizeTargetDateParam(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  return DATE_PARAM_REGEX.test(raw) ? raw : null;
+}
+
+function buildTimestampForTargetDate(targetDate: string): string {
+  // Anchor backfilled scans to midday UTC so the selected calendar date
+  // remains stable across common local timezone conversions.
+  return `${targetDate}T12:00:00.000Z`;
 }
 
 function toBridgeLocale(locale: string): BridgeLocale {
@@ -210,6 +223,9 @@ function FaceGuideOverlay({ guideState }: FaceGuideOverlayProps) {
 
 export default function ScanIndexScreen() {
   const router = useRouter();
+  const { targetDate: targetDateParam } = useLocalSearchParams<{
+    targetDate?: string | string[];
+  }>();
   const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const { isPro } = useSubscription();
@@ -233,6 +249,10 @@ export default function ScanIndexScreen() {
   const [capturedAt, setCapturedAt] = useState<string | null>(null);
   const [isPersisting, setIsPersisting] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const targetDate = useMemo(
+    () => normalizeTargetDateParam(targetDateParam),
+    [targetDateParam]
+  );
   const todayDateKey = toDailyDate(new Date());
 
   const analyzeFaceMutation = useAnalyzeFaceMutation();
@@ -340,7 +360,9 @@ export default function ScanIndexScreen() {
     setAnalysisError(null);
     hapticImpact('light');
 
-    const createdAt = capturedAt ?? new Date().toISOString();
+    const createdAt =
+      capturedAt ??
+      (targetDate ? buildTimestampForTargetDate(targetDate) : new Date().toISOString());
 
     try {
       const result = await analyzeFaceMutation.mutateAsync({
@@ -388,7 +410,19 @@ export default function ScanIndexScreen() {
     } finally {
       setIsPersisting(false);
     }
-  }, [analyzeFaceMutation, capturedAt, capturedImageUri, handleOpenPaywall, i18n.language, isAnalyzing, isDailyScanLimitReached, posthog, router, t]);
+  }, [
+    analyzeFaceMutation,
+    capturedAt,
+    capturedImageUri,
+    handleOpenPaywall,
+    i18n.language,
+    isAnalyzing,
+    isDailyScanLimitReached,
+    posthog,
+    router,
+    t,
+    targetDate,
+  ]);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -433,7 +467,9 @@ export default function ScanIndexScreen() {
       const uri = normalizeFileUri(photo.path);
       capturedUriRef.current = uri;
       setCapturedImageUri(uri);
-      setCapturedAt(new Date().toISOString());
+      setCapturedAt(
+        targetDate ? buildTimestampForTargetDate(targetDate) : new Date().toISOString()
+      );
       hapticImpact('medium');
     } catch (error) {
       stableFramesRef.current = 0;
@@ -450,7 +486,7 @@ export default function ScanIndexScreen() {
       setIsCapturing(false);
       captureInFlightRef.current = false;
     }
-  }, [flashEnabled, posthog, supportsFlashCapture, t]);
+  }, [flashEnabled, posthog, supportsFlashCapture, t, targetDate]);
 
   const handleFacesDetected = useCallback(
     async (faces: Face[], frame: Frame) => {
@@ -553,7 +589,7 @@ export default function ScanIndexScreen() {
             }}
           >
             <Text style={styles.buttonLabel}>
-              {t('scan.grantCameraAccess', { defaultValue: 'Grant Camera Access' })}
+              {t('common.continue', { defaultValue: 'Continue' })}
             </Text>
           </Pressable>
         </View>

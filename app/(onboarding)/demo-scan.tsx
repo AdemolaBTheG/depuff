@@ -185,14 +185,14 @@ export default function OnboardingDemoScanScreen() {
                       frame({ width: width * 0.84 }),
                     ]}
                   >
-                    {t('common.enableCamera')}
+                    {t('common.continue')}
                   </IOSText>
                 </Button>
               </Host>
             ) : (
               <View style={{ width: width * 0.84, alignSelf: 'center' }}>
                 <AndroidButton onPress={() => void handleRequestPermission()} color={Theme.colors.accent}>
-                  {t('common.enableCamera')}
+                  {t('common.continue')}
                 </AndroidButton>
               </View>
             )}

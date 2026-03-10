@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { sql } from 'drizzle-orm';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { PressableScale } from 'pressto';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -24,8 +24,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, type Camera as VisionCamera } from 'react-native-vision-camera';
 import { usePostHog } from 'posthog-react-native';
 
+const DATE_PARAM_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 function normalizeFileUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
+}
+
+function normalizeTargetDateParam(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return null;
+  return DATE_PARAM_REGEX.test(raw) ? raw : null;
+}
+
+function buildTimestampForTargetDate(targetDate: string): string {
+  return `${targetDate}T12:00:00.000Z`;
 }
 
 function toErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -60,6 +72,9 @@ function toBridgeLocale(locale: string): BridgeLocale {
 
 export default function FoodIndexScreen() {
   const router = useRouter();
+  const { targetDate: targetDateParam } = useLocalSearchParams<{
+    targetDate?: string | string[];
+  }>();
   const { t, i18n } = useTranslation();
   const db = useDbStore((state) => state.db);
   const { isPro } = useSubscription();
@@ -80,7 +95,12 @@ export default function FoodIndexScreen() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const targetDate = useMemo(
+    () => normalizeTargetDateParam(targetDateParam),
+    [targetDateParam]
+  );
   const todayDateKey = toDailyDate(new Date());
+  const analysisDateKey = targetDate ?? todayDateKey;
   const isAnalyzing = analyzeFoodMutation.isPending;
   const isBusy = isCapturing || isAnalyzing || isPickingImage;
   const supportsFlashCapture = Boolean(device?.hasFlash);
@@ -89,7 +109,7 @@ export default function FoodIndexScreen() {
   const flashIconName = flashEnabled ? ('bolt.fill' as const) : ('bolt.slash' as const);
   const todayFoodAnalysisCountQuery = useQuery({
     enabled: Boolean(db) && !isPro,
-    queryKey: ['food-limit-count', todayDateKey],
+    queryKey: ['food-limit-count', analysisDateKey],
     queryFn: async () => {
       if (!db) return 0;
       const [row] = await db
@@ -97,7 +117,7 @@ export default function FoodIndexScreen() {
           count: sql<number>`cast(count(*) as int)`,
         })
         .from(foodLogs)
-        .where(sql`${foodLogs.logDate} = ${todayDateKey}`);
+        .where(sql`${foodLogs.logDate} = ${analysisDateKey}`);
       return row?.count ?? 0;
     },
   });
@@ -241,7 +261,7 @@ export default function FoodIndexScreen() {
 
     setCaptureError(null);
     hapticImpact('light');
-    const capturedAt = new Date().toISOString();
+    const capturedAt = targetDate ? buildTimestampForTargetDate(targetDate) : new Date().toISOString();
 
     try {
       const result = await analyzeFoodMutation.mutateAsync({
@@ -273,7 +293,19 @@ export default function FoodIndexScreen() {
       setCaptureError(foodErrorMessage);
       hapticError();
     }
-  }, [analyzeFoodMutation, capturedImageUri, handleOpenPaywall, i18n.language, isAnalyzing, isDailyFoodLimitReached, posthog, router, setPendingAnalysis, t]);
+  }, [
+    analyzeFoodMutation,
+    capturedImageUri,
+    handleOpenPaywall,
+    i18n.language,
+    isAnalyzing,
+    isDailyFoodLimitReached,
+    posthog,
+    router,
+    setPendingAnalysis,
+    t,
+    targetDate,
+  ]);
 
   useEffect(() => {
     if (hasHydratedFromPendingRef.current) return;
@@ -299,7 +331,7 @@ export default function FoodIndexScreen() {
           </Text>
           <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={requestPermission}>
             <Text selectable style={styles.primaryButtonLabel}>
-              {t('scan.grantAccess', { defaultValue: 'Grant Access' })}
+              {t('common.continue', { defaultValue: 'Continue' })}
             </Text>
           </Pressable>
         </View>

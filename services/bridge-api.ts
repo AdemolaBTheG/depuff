@@ -20,6 +20,10 @@ export type BridgeActionItem = {
   text: string;
   completed: boolean;
 };
+export type BridgeCitation = {
+  title: string;
+  url: string;
+};
 
 export type AnalyzeFaceParams = {
   imageUri?: string;
@@ -41,6 +45,7 @@ export type AnalyzeFaceResponse = {
   analysis_summary: string;
   suggested_protocol: BridgeRoutineProtocol;
   actionable_steps: BridgeActionItem[];
+  citations: BridgeCitation[];
 };
 
 export type AnalyzeFoodParams = {
@@ -57,6 +62,7 @@ export type AnalyzeFoodResponse = {
   sodium_mg: number;
   bloat_risk: BridgeFoodRisk;
   counter_measure: string;
+  citations: BridgeCitation[];
 };
 
 export type DailyRoutineParams = {
@@ -162,6 +168,22 @@ function sanitizeActionItems(input: unknown): BridgeActionItem[] {
   return items;
 }
 
+function sanitizeCitations(input: unknown): BridgeCitation[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as { title?: unknown; url?: unknown };
+      const title = typeof record.title === 'string' ? record.title.trim() : '';
+      const url = typeof record.url === 'string' ? record.url.trim() : '';
+      if (!title || !url || !/^https?:\/\//i.test(url)) return null;
+      return { title, url } satisfies BridgeCitation;
+    })
+    .filter((item): item is BridgeCitation => Boolean(item))
+    .slice(0, 8);
+}
+
 async function imageToBase64(imageUri: string): Promise<string> {
   const normalizedUri = normalizeImageUri(imageUri);
   return new File(normalizedUri).base64();
@@ -239,6 +261,7 @@ export async function analyzeFace(params: AnalyzeFaceParams): Promise<AnalyzeFac
     score: clampScore(response.score),
     focus_areas: Array.isArray(response.focus_areas) ? response.focus_areas : [],
     actionable_steps: sanitizeActionItems(response.actionable_steps),
+    citations: sanitizeCitations(response.citations),
   };
 }
 
@@ -261,6 +284,7 @@ export async function analyzeFood(params: AnalyzeFoodParams): Promise<AnalyzeFoo
     ...response,
     locale: normalizeLocale(response.locale),
     sodium_mg: Math.max(0, Math.round(response.sodium_mg ?? 0)),
+    citations: sanitizeCitations(response.citations),
   };
 }
 

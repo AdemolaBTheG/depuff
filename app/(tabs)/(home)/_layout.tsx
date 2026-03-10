@@ -42,7 +42,7 @@ export default function HomeLayout() {
                 icon: { type: 'sfSymbol', name: 'camera' },
                 tintColor: Theme.colors.accent,
                 sharesBackground: false,
-                onPress: () => router.push('/(scan)' as never),
+                onPress: () => router.push((isPro ? '/(scan)' : '/(paywalls)') as never),
               },
             ];
             

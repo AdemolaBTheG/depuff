@@ -12,13 +12,31 @@ import { Image } from 'expo-image';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePostHog } from 'posthog-react-native';
 
 type BloatRiskLevel = 'low' | 'moderate' | 'high' | 'extreme';
+type CitationItem = {
+  title: string;
+  url: string;
+};
+const FALLBACK_FOOD_CITATIONS: CitationItem[] = [
+  {
+    title: 'WHO: Salt reduction',
+    url: 'https://www.who.int/news-room/fact-sheets/detail/salt-reduction',
+  },
+  {
+    title: 'CDC: About Sodium and Health',
+    url: 'https://www.cdc.gov/salt/about/index.html',
+  },
+  {
+    title: 'American Heart Association: Sodium',
+    url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/sodium',
+  },
+];
 
 function riskToColor(risk: BloatRiskLevel): string {
   switch (risk) {
@@ -110,6 +128,28 @@ export default function FoodResultScreen() {
   }, [pendingAnalysis]);
 
   const canConfirm = useMemo(() => Boolean(pendingAnalysis) && !isSaving, [isSaving, pendingAnalysis]);
+  const visibleCitations = useMemo(() => {
+    if (!pendingAnalysis) return FALLBACK_FOOD_CITATIONS;
+    return pendingAnalysis.result.citations.length > 0
+      ? pendingAnalysis.result.citations
+      : FALLBACK_FOOD_CITATIONS;
+  }, [pendingAnalysis]);
+
+  const handleOpenCitation = useCallback(
+    async (url: string) => {
+      try {
+        await Linking.openURL(url);
+      } catch {
+        Alert.alert(
+          t('common.unavailable', { defaultValue: 'Unavailable' }),
+          t('food.citationsOpenFailed', {
+            defaultValue: 'Unable to open this source right now.',
+          })
+        );
+      }
+    },
+    [t]
+  );
 
   const handleConfirm = useCallback(async () => {
     if (!pendingAnalysis || isSaving) return;
@@ -247,6 +287,28 @@ export default function FoodResultScreen() {
               <Text selectable style={styles.secondary}>
                 {pendingAnalysis.result.counter_measure}
               </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text selectable style={styles.label}>
+                {t('common.sources', { defaultValue: 'SOURCES' })}
+              </Text>
+              <View style={styles.sourcesList}>
+                {visibleCitations.map((citation) => (
+                  <Pressable
+                    key={`${citation.url}-${citation.title}`}
+                    onPress={() => void handleOpenCitation(citation.url)}
+                    style={styles.sourceLinkWrap}
+                  >
+                    <Text selectable style={styles.sourceLinkText}>
+                      {citation.title}
+                    </Text>
+                    <Text selectable style={styles.sourceUrlText}>
+                      {citation.url}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           </View>
 
@@ -404,7 +466,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 20,
     borderCurve: 'continuous',
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
     padding: 18,
     gap: 8,
   },
@@ -436,6 +499,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(0,0,0,0.8)',
     lineHeight: 22,
+  },
+  sourcesList: {
+    gap: 10,
+  },
+  sourceLinkWrap: {
+    gap: 2,
+  },
+  sourceLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.colors.accent,
+    textDecorationLine: 'underline',
+  },
+  sourceUrlText: {
+    color: 'rgba(0,0,0,0.45)',
+    fontSize: 12,
+    lineHeight: 16,
   },
   errorText: {
     alignSelf: 'center',

@@ -1,9 +1,9 @@
 {
   "common": {
     "continue": "Weiter",
-    "finish": "Abschliessen",
-    "skip": "Uberspringen",
-    "skipForNow": "Vorerst uberspringen",
+    "finish": "Abschließen",
+    "skip": "Überspringen",
+    "skipForNow": "Vorerst überspringen",
     "enableCamera": "Kamera aktivieren"
   },
   "onboarding": {
@@ -14,8 +14,8 @@
         "options": {
           "reduceMorningPuffiness": "Morgendliche Schwellungen reduzieren",
           "reduceWaterRetention": "Wassereinlagerungen reduzieren",
-          "buildDailyRoutine": "Eine tagliche Routine aufbauen",
-          "trackSodiumTriggers": "Natrium-Ausloser verfolgen"
+          "buildDailyRoutine": "Eine tägliche Routine aufbauen",
+          "trackSodiumTriggers": "Natrium-Auslöser verfolgen"
         }
       },
       "frequency": {
@@ -25,12 +25,12 @@
           "rarely": "Selten",
           "oneToTwo": "1-2 Tage pro Woche",
           "threeToFive": "3-5 Tage pro Woche",
-          "daily": "Fast taglich"
+          "daily": "Fast täglich"
         }
       },
       "trigger": {
-        "title": "Welcher Ausloser passt am besten?",
-        "subtitle": "Wahle aus, was deine Schwellung am ehesten verursacht.",
+        "title": "Welcher Auslöser passt am besten?",
+        "subtitle": "Wähle aus, was deine Schwellung am ehesten verursacht.",
         "options": {
           "saltyFood": "Salziges Essen",
           "poorSleep": "Schlechter Schlaf",
@@ -39,8 +39,8 @@
         }
       },
       "commitment": {
-        "title": "Wie intensiv soll dein taglicher Plan sein?",
-        "subtitle": "Wahle dein Einsatzniveau.",
+        "title": "Wie intensiv soll dein täglicher Plan sein?",
+        "subtitle": "Wähle dein Einsatzniveau.",
         "options": {
           "light": "Leicht (2 Min/Tag)",
           "standard": "Standard (5 Min/Tag)",
@@ -50,7 +50,7 @@
     },
     "goals": {
       "hydration": {
-        "title": "Lege dein tagliches Hydrationsziel fest",
+        "title": "Lege dein tägliches Hydrationsziel fest",
         "subtitle": "Wir nutzen dieses Ziel in Start und Fortschritt.",
         "unit": "ml pro Tag"
       },
@@ -63,7 +63,7 @@
     "demoScan": {
       "permissionTitle": "Teste deinen ersten Vorschau-Scan",
       "permissionSubtitle": "Wir brauchen Kamerazugriff, um deine Depuff-Vorschau zu erstellen.",
-      "unavailableTitle": "Frontkamera nicht verfugbar",
+      "unavailableTitle": "Frontkamera nicht verfügbar",
       "unavailableSubtitle": "Du kannst stattdessen mit einer Depuff-Vorschau fortfahren.",
       "continueToPreview": "Zur Vorschau weiter",
       "previewTitle": "Vorschau-Scan",
@@ -78,20 +78,20 @@
       "subtitleBuilding": "Dein Scan wird analysiert und dein personalisierter Depuff-Plan vorbereitet.",
       "subtitleReady": "Vorschau aus deinem Scan erstellt.",
       "badge": "Depuff-Vorschau",
-      "imageUnavailable": "Scan-Bild nicht verfugbar",
+      "imageUnavailable": "Scan-Bild nicht verfügbar",
       "generating": "Deine Vorschau wird erstellt",
       "steps": {
         "contours": "Gesichtskonturen werden erkannt",
-        "zones": "Zonen mit Schwellungsneigung werden geschatzt",
+        "zones": "Zonen mit Schwellungsneigung werden geschätzt",
         "profile": "Depuff-Score-Profil wird erstellt",
-        "plan": "Dein taglicher Aktionsplan wird finalisiert"
+        "plan": "Dein täglicher Aktionsplan wird finalisiert"
       },
       "hotspotsTitle": "Wahrscheinliche Schwellungs-Hotspots",
       "actionTitle": "Bereiche zur Verbesserung heute",
-      "trendTitle": "Moglicher 7-Tage-Depuff-Trend",
+      "trendTitle": "Möglicher 7-Tage-Depuff-Trend",
       "hotspots": {
         "underEye": "Schwellung unter den Augen",
-        "midFace": "Fulle im Mittelgesicht",
+        "midFace": "Fülle im Mittelgesicht",
         "jawline": "Wassereinlagerung an der Kieferlinie"
       },
       "actions": {
@@ -99,25 +99,25 @@
         "sodium": "Halte das Natrium beim Abendessen niedriger als beim Mittagessen",
         "walk": "Mach nach dem Abendessen einen 10-minutigen Spaziergang"
       },
-      "unlockCta": "Vollstandige Analyse freischalten",
+      "unlockCta": "Vollständige Analyse freischalten",
       "buildingCta": "Deine Vorschau wird erstellt..."
     },
     "notifications": {
-      "title": "Taglich dranbleiben",
+      "title": "Täglich dranbleiben",
       "subtitle": "Aktiviere Benachrichtigungen, damit Depuff dich zur richtigen Zeit erinnert.",
       "item_title": "Depuff",
       "time_5m": "5 Min",
       "time_2m": "2 Min",
       "time_now": "jetzt",
-      "item_0": "Hydrations-Erinnerung: Trinke den grossten Teil deines Wassers vor 16 Uhr.",
+      "item_0": "Hydrations-Erinnerung: Trinke den größten Teil deines Wassers vor 16 Uhr.",
       "item_1": "Kurzer Hinweis: Halte das Natrium beim Abendessen niedriger als beim Mittagessen.",
-      "item_2": "Aktions-Check: Schliesse deine Depuff-Routine vor dem Schlafengehen ab."
+      "item_2": "Aktions-Check: Schließe deine Depuff-Routine vor dem Schlafengehen ab."
     },
     "rating": {
-      "title": "Gefallt dir Depuff bisher?",
+      "title": "Gefällt dir Depuff bisher?",
       "subtitle": "Eine kurze Bewertung hilft uns zu wachsen und deine Depuff-Ergebnisse weiter zu verbessern.",
       "cta_rate": "Jetzt bewerten",
-      "cta_skip": "Vorerst uberspringen"
+      "cta_skip": "Vorerst überspringen"
     },
     "intro": {
       "ctaNext": "Weiter",
@@ -125,7 +125,7 @@
       "slides": {
         "scan": {
           "title": "Scanne in Sekunden",
-          "description": "Ein kurzer Gesichtscheck jeden Morgen gibt dir eine klare tagliche Ausgangsbasis.",
+          "description": "Ein kurzer Gesichtscheck jeden Morgen gibt dir eine klare tägliche Ausgangsbasis.",
           "points": {
             "0": "Schnelle Kameraaufnahme",
             "1": "KI-Schwellungswert mit Trendkontext"
@@ -133,23 +133,23 @@
         },
         "food": {
           "title": "Mahlzeiten schnell erfassen",
-          "description": "Fotografiere Essen und schatze Natrium, um die echten Ausloser von Schwellungen zu erkennen.",
+          "description": "Fotografiere Essen und schätze Natrium, um die echten Auslöser von Schwellungen zu erkennen.",
           "points": {
-            "0": "KI-Natriumschatzung pro Mahlzeit",
+            "0": "KI-Natriumschätzung pro Mahlzeit",
             "1": "Schwellungsrisiko-Labels mit klarer Handlung"
           }
         },
         "actions": {
-          "title": "Tagliche Aktionen erhalten",
-          "description": "Depuff macht aus Scan- und Essensdaten eine fokussierte Checkliste fur heute.",
+          "title": "Tägliche Aktionen erhalten",
+          "description": "Depuff macht aus Scan- und Essensdaten eine fokussierte Checkliste für heute.",
           "points": {
-            "0": "Prioritaten fur Hydration und Natrium",
+            "0": "Prioritäten für Hydration und Natrium",
             "1": "Einfache Aufgaben mit Fortschritts-Feedback"
           }
         },
         "progress": {
           "title": "Verfolge, was wirkt",
-          "description": "Verfolge deine Trends uber Zeit und erkenne, welche Gewohnheiten Schwellungen am meisten reduzieren.",
+          "description": "Verfolge deine Trends über Zeit und erkenne, welche Gewohnheiten Schwellungen am meisten reduzieren.",
           "points": {
             "0": "7 Tage kostenloses Fortschritts-Tracking",
             "1": "Tiefere Einblicke mit Pro-Analysen"
@@ -158,8 +158,8 @@
       }
     },
     "nutrients": {
-      "title": "Kleine tagliche\nNahrstoffe",
-      "subtitle": "Kleine Veranderungen summieren sich. Baue Gewohnheiten auf, die Schwellungen reduzieren und deine Basis verbessern.",
+      "title": "Kleine tägliche\nNährstoffe",
+      "subtitle": "Kleine Veränderungen summieren sich. Baue Gewohnheiten auf, die Schwellungen reduzieren und deine Basis verbessern.",
       "items": {
         "regulation": "Regulation des Nervensystems",
         "scripts": "Besserer innerer Dialog",
@@ -167,13 +167,13 @@
         "boundaries": "Klare Grenzen",
         "mindset": "Langfristiges Mindset",
         "patience": "Geduld und Konsequenz",
-        "sleep": "Erholung mit Schlaf als Prioritat"
+        "sleep": "Erholung mit Schlaf als Priorität"
       }
     }
   },
   "quick_actions": {
     "home_title": "Start",
-    "home_subtitle": "Heutiges Dashboard offnen",
+    "home_subtitle": "Heutiges Dashboard öffnen",
     "scan_title": "Gesichts-Scan",
     "scan_subtitle": "Starte deinen Morgen-Scan",
     "food_title": "Essen erfassen",

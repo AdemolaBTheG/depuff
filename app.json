@@ -2,7 +2,7 @@
   "expo": {
     "name": "depuff",
     "slug": "depuff",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "depuff",
     "userInterfaceStyle": "automatic",
@@ -11,18 +11,14 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.depuff.app",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ],
+        "UIBackgroundModes": ["remote-notification"],
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to the camera to allow you to take photos and videos and analyze them.",
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "$(PRODUCT_NAME) may not actually need this permission, but it may be required by one of our services."
       },
       "entitlements": {
         "aps-environment": "production",
-        "com.apple.security.application-groups": [
-          "group.com.depuff.app.onesignal"
-        ]
+        "com.apple.security.application-groups": ["group.com.depuff.app.onesignal"]
       }
     },
     "android": {
@@ -33,9 +29,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.CAMERA"
-      ]
+      "permissions": ["android.permission.CAMERA"]
     },
     "plugins": [
       "expo-router",
@@ -54,6 +48,14 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.2"
           }
         }
       ],

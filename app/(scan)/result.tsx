@@ -22,7 +22,7 @@ import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, PlatformColor, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, PlatformColor, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { interpolateColor, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +33,24 @@ type RouteParams = {
   capturedAt?: string | string[];
   result?: string | string[];
 };
+type CitationItem = {
+  title: string;
+  url: string;
+};
+const FALLBACK_SCAN_CITATIONS: CitationItem[] = [
+  {
+    title: 'NHS: Oedema (Swelling)',
+    url: 'https://www.nhs.uk/conditions/oedema/',
+  },
+  {
+    title: 'Cleveland Clinic: Edema',
+    url: 'https://my.clevelandclinic.org/health/diseases/12564-edema',
+  },
+  {
+    title: 'Mayo Clinic: Bags under eyes',
+    url: 'https://www.mayoclinic.org/diseases-conditions/bags-under-eyes/symptoms-causes/syc-20369927',
+  },
+];
 
 function firstParamValue(value?: string | string[]): string | undefined {
   if (!value) return undefined;
@@ -232,6 +250,10 @@ export default function Result() {
     : hasPersistedPayload
       ? t('scan.report.source.saved', { defaultValue: 'Saved scan' })
       : t('scan.report.source.preview', { defaultValue: 'Preview only' });
+  const visibleCitations = useMemo(() => {
+    if (result?.citations?.length) return result.citations;
+    return FALLBACK_SCAN_CITATIONS;
+  }, [result?.citations]);
 
   useEffect(
     () => () => {
@@ -322,7 +344,11 @@ export default function Result() {
       });
       posthog?.capture('Scan Deleted');
       hapticWarning();
-      router.replace('/(scan)' as never);
+      if (router.canDismiss()) {
+        router.dismissTo('/(scan)');
+      } else {
+        router.replace('/(scan)' as never);
+      }
     } catch (error) {
       hapticError();
       Alert.alert(
@@ -335,6 +361,40 @@ export default function Result() {
       setIsDeleting(false);
     }
   }, [capturedAt, imageUri, posthog, router, t]);
+
+  const handleOpenNewScan = useCallback(() => {
+    hapticImpact('light');
+    if (router.canDismiss()) {
+      router.dismissTo('/(scan)');
+      return;
+    }
+    router.replace('/(scan)' as never);
+  }, [router]);
+
+  const handleDone = useCallback(() => {
+    hapticImpact('light');
+    if (router.canDismiss()) {
+      router.dismissTo('/(tabs)/(home)');
+      return;
+    }
+    router.replace('/(tabs)/(home)' as never);
+  }, [router]);
+
+  const handleOpenCitation = useCallback(
+    async (url: string) => {
+      try {
+        await Linking.openURL(url);
+      } catch {
+        Alert.alert(
+          t('common.unavailable', { defaultValue: 'Unavailable' }),
+          t('scan.report.citationsOpenFailed', {
+            defaultValue: 'Unable to open this source right now.',
+          })
+        );
+      }
+    },
+    [t]
+  );
 
   const confirmDeleteScan = useCallback(() => {
     hapticSelection();
@@ -418,6 +478,28 @@ export default function Result() {
                     {t('scan.report.sourceLabel', { defaultValue: 'Source' })}: {sourceLabel}
                   </Text>
                 </View>
+
+                <View style={styles.sourcesSection}>
+                  <Text selectable style={styles.sectionLabel}>
+                    {t('common.sources', { defaultValue: 'SOURCES' })}
+                  </Text>
+                  <View style={styles.sourcesList}>
+                    {visibleCitations.map((citation) => (
+                      <Pressable
+                        key={`${citation.url}-${citation.title}`}
+                        onPress={() => void handleOpenCitation(citation.url)}
+                        style={styles.sourceLinkWrap}
+                      >
+                        <Text selectable style={styles.sourceLinkText}>
+                          {citation.title}
+                        </Text>
+                        <Text selectable style={styles.sourceUrlText}>
+                          {citation.url}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
               </View>
             </>
           ) : (
@@ -440,10 +522,7 @@ export default function Result() {
                 label={t('scan.newScan', { defaultValue: 'New Scan' })}
                 systemImage="camera.viewfinder"
                 role="cancel"
-                onPress={() => {
-                  hapticImpact('light');
-                  router.replace('/(scan)' as never);
-                }}
+                onPress={handleOpenNewScan}
                 modifiers={[
                   controlSize('large'),
                   tint('#475569'),
@@ -454,10 +533,7 @@ export default function Result() {
               <IOSButton
                 label={t('common.done', { defaultValue: 'Done' })}
                 systemImage="checkmark"
-                onPress={() => {
-                  hapticImpact('light');
-                  router.replace('/(tabs)/(home)' as never);
-                }}
+                onPress={handleDone}
                 modifiers={[
                   buttonStyle(isLiquidGlassAvailable() ? 'glassProminent' : 'borderedProminent'),
                   tint(Theme.colors.accent),
@@ -474,19 +550,13 @@ export default function Result() {
                   label={t('scan.newScan', { defaultValue: 'New Scan' })}
                   kind="secondary"
                   role="cancel"
-                  onPress={() => {
-                    hapticImpact('light');
-                    router.replace('/(scan)' as never);
-                  }}
+                  onPress={handleOpenNewScan}
                 />
               </View>
               <View style={styles.actionItem}>
                 <NativeButton
                   label={t('common.done', { defaultValue: 'Done' })}
-                  onPress={() => {
-                    hapticImpact('light');
-                    router.replace('/(tabs)/(home)' as never);
-                  }}
+                  onPress={handleDone}
                 />
               </View>
             </View>
@@ -684,6 +754,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
+  },
+  sourcesSection: {
+    marginTop: 10,
+    gap: 8,
+  },
+  sourcesList: {
+    gap: 10,
+  },
+  sourceLinkWrap: {
+    gap: 2,
+  },
+  sourceLinkText: {
+    color: Theme.colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  sourceUrlText: {
+    color: '#8E8E93',
+    fontSize: 12,
+    lineHeight: 16,
   },
   actions: {
     flexDirection: 'row',

@@ -429,13 +429,19 @@ export default function HomeIndex() {
 
   const handleOpenScan = useCallback(() => {
     hapticSelection();
-    router.push('/(scan)' as never);
-  }, [router]);
+    router.push({
+      pathname: '/(scan)',
+      params: { targetDate: selectedDate },
+    } as never);
+  }, [router, selectedDate]);
 
   const handleLogFood = useCallback(() => {
     hapticSelection();
-    router.push('/(food)' as never);
-  }, [router]);
+    router.push({
+      pathname: '/(food)',
+      params: { targetDate: selectedDate },
+    } as never);
+  }, [router, selectedDate]);
   const showHydrationGoalToast = useCallback(() => {
     hapticSuccess();
     Burnt.toast({
